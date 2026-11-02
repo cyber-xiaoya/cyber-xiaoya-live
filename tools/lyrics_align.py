@@ -9,9 +9,9 @@ r"""歌词打轴(方案C): 本机 ASR 字级时间戳 × 歌词 md 的成曲顺�
 前奏/间奏期间没有歌声 → 行时间自然跳过乐器段。
 
 用法(用带 funasr/faster-whisper 的 venv-speech 跑, 不是项目 venv):
-  python tools\lyrics_align.py "<歌曲.flac>"
-  python tools\lyrics_align.py --all     # 批量: song_dirs 全部
-  python tools\lyrics_align.py "<歌>" --force   # 忽略缓存重打
+  <语音桥目录>\venv-speech\Scripts\python.exe tools\lyrics_align.py "<歌曲.flac>"
+  <语音桥目录>\venv-speech\Scripts\python.exe tools\lyrics_align.py --all     # 批量: song_dirs 全部
+  <语音桥目录>\venv-speech\Scripts\python.exe tools\lyrics_align.py "<歌>" --force   # 忽略缓存重打
 
 输出: <项目>/lyrics-cache/<歌名>.lrc.json
   {"song":..., "duration_ms":..., "lines":[{"text","start","end"}], "method":"whisper-large-v3", ...}
@@ -27,11 +27,10 @@ import tempfile
 import time
 from pathlib import Path
 
-# 路径都可用环境变量覆盖; 没配就走 PATH 里的 ffmpeg / HuggingFace 上的模型名
-FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
-FFPROBE = os.environ.get("FFPROBE", "ffprobe")
-SEACO = os.environ.get("SEACO_MODEL", "")
-WHISPER_LOCAL = Path(os.environ.get("WHISPER_MODEL", "faster-whisper-large-v3"))
+FFMPEG = r"C:\ffmpeg7.1.1\bin\ffmpeg.exe"
+FFPROBE = r"C:\ffmpeg7.1.1\bin\ffprobe.exe"
+SEACO = r"<语音桥目录>\models\funasr\speech_seaco_paraformer_large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
+WHISPER_LOCAL = Path(r"<语音桥目录>\models\whisper\faster-whisper-large-v3")
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "lyrics-cache"
 CJK_RE = re.compile(r"[\u4e00-\u9fff a-zA-Z0-9]")

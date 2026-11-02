@@ -1,93 +1,127 @@
 {
+  "_说明": "复制成 config.json 后填入你自己的密钥。config.json 已在 .gitignore 里，不会被提交。",
   "vidu": {
-    "api_key": "",
-    "host": "api.vidu.cn",
-    "create_path": "/live/s_avatar/component",
-    "ws_path": "/live/v1/external-lives/{live_id}/stream",
-    "api_keys": null
-  },
-  "model": "vidu-s2",
-  "avatar": {
-    "avatar_id": "",
-    "image_uri": null,
-    "name": "your-avatar"
-  },
-  "action": {
-    "enabled": true,
-    "library_id": "0"
+    "api_key": "vda_<在这里填你的Vidu密钥>",
+    "api_keys": [],
+    "avatar_id": "<在这里填你的数字人形象ID>",
+    "action": {
+      "library_id": ""
+    }
   },
   "rtc": {
     "mode": "managed",
-    "managed_provider": "artc",
-    "customer_provider": "artc",
     "artc": {
-      "app_id": "",
-      "app_key": "",
-      "token_shape": ""
+      "app_key": "<在这里填ARTC app_key>"
     },
     "trtc": {
       "sdk_app_id": "",
-      "secret_key": ""
-    },
-    "managed_recording": false,
-    "record_dir": ""
+      "secret_key": "<在这里填TRTC secret_key>"
+    }
   },
   "llm": {
-    "base_url": "https://api.deepseek.com",
+    "provider": "deepseek",
     "model": "deepseek-flash",
-    "thinking": "disabled",
-    "key_file": "",
-    "temperature": 0.7,
-    "max_tokens": "",
-    "history_turns": 8,
-    "system_prompt": "## 定位\n\n你是「小雅」，一个年轻的女性数字人主播，正在直播间里面对镜头与观众实时互动。\n（这是示例人设，请换成你自己写的角色设定。）\n\n## 输出规范\n\n- 只输出纯对话，像真人对着麦克风说话，第一人称，口语化。\n- 不出现括号内容、星号动作、表情符号、markdown、列表。\n- 回复一到三句，通常不超过 60 字。\n\n## 红线\n\n- 不聊政治、色情、暴力、赌博；不做医疗、金融、投资类承诺；不诱导刷礼物。\n- 不编造事实；被问是不是真人时，大方承认自己是数字人。"
+    "base_url": "https://api.deepseek.com",
+    "key_file": "key.txt",
+    "system_prompt": "你是小雅，二十出头的女孩，说话自然口语化，回应简短。",
+    "history_turns": 15,
+    "max_tokens": 600,
+    "fallback_models": [
+      "deepseek-v4-pro"
+    ]
   },
   "tts": {
-    "engine": "omnivoice",
-    "omnivoice_base": "http://127.0.0.1:9877",
-    "omnivoice_timeout_sec": 120,
-    "voices_dir": "",
-    "voice": "tw-xiaoya",
-    "files_dir": "audio",
+    "provider": "",
+    "voice": "",
     "song_dirs": [],
-    "lyrics_dir": [],
-    "lyrics_cache_dir": "lyrics-cache",
-    "chunk_ms": 100,
-    "gain": 1.0
-  },
-  "session": {
-    "greeting": "",
-    "idle_timeout_seconds": 500,
-    "max_duration_seconds": 36000,
-    "send_output_per_sentence": true
-  },
-  "bridge": {
-    "port": 8795
+    "song_files": []
   },
   "danmaku": {
     "mode": null,
     "drop_words": [
       "倒立",
-      "翻跟斗"
+      "翻跟斗",
+      "空翻",
+      "后空翻",
+      "前空翻",
+      "翻跟头",
+      "侧手翻",
+      "前滚翻",
+      "下腰",
+      "一字马",
+      "劈叉",
+      "国旗",
+      "国徽",
+      "党旗",
+      "党徽",
+      "军旗",
+      "军徽",
+      "天安门",
+      "人民大会堂",
+      "主席",
+      "总书记",
+      "政治局",
+      "政治"
     ],
     "answer_gap_ms": null,
     "answer_max_wait_ms": null,
-    "answer_max_sentences": 0,
-    "read_interval_ms": 20000,
-    "vip_min_interval_ms": 5000
+    "answer_max_sentences": 2,
+    "read_interval_ms": 3000,
+    "vip_min_interval_ms": 5000,
+    "batch": {
+      "enabled": true,
+      "max_items": 14,
+      "read_max": 1,
+      "read_nick": false,
+      "vip_nick": true
+    },
+    "speech_block_words": [
+      "烟",
+      "香烟",
+      "抽烟",
+      "吸烟",
+      "点烟"
+    ]
   },
-  "stage": {
-    "cap_overlay": true,
-    "cap_offset_px": 200,
-    "cap_lines": 3,
-    "cap_font_px": 19,
-    "cap_fade_sec": 20,
-    "cap_show_sys": true,
-    "mask_ids": true,
-    "shadow": "medium"
-  },
-  "danmaku_cmd": {
+  "action": {
     "enabled": true,
-    "mode": "confirm"
+    "library_id": "0",
+    "song_action_gap_s": 6,
+    "action_gap_s": 2,
+    "same_action_gap_s": 8,
+    "act_queue_max": 3,
+    "manual_action_gap_s": 0,
+    "manual_same_action_gap_s": 0,
+    "manual_speaking_guard": false,
+    "choreo_min_gap_s": 0,
+    "choreo_drop_danmaku": false
+  },
+  "gift_batch": {
+    "enabled": true,
+    "window_s": 6,
+    "flush_people": 4,
+    "flush_diamond": 50,
+    "max_names": 4,
+    "min_interval_s": 25,
+    "urgent_min_interval_s": 10,
+    "max_per_minute": 2,
+    "max_items": 12
+  },
+  "gift_vip": {
+    "enabled": true,
+    "threshold_diamond": 99,
+    "cooldown_s": 30,
+    "template": "拿出一个\"{item}\"玩具，对着镜头展示并用脸颊贴贴"
+  },
+  "patrons": {
+    "enabled": true,
+    "once_per_session": true,
+    "forward_joins": true
+  },
+  "stats": {
+    "enabled": true,
+    "diamond_to_yinlang": 1.0,
+    "diamond_to_token": 10.0,
+    "credits_poll_s": 30
   }
 }

@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Continue'
 
 # ── 运行日志(2026-10-17 新增): 每次双击启动都留一份完整记录, 出问题能回看是哪一步炸的 ──
 # 背景: 用户重启电脑后双击快捷方式"出 bug", 但当时没有任何痕迹可查(窗口 8 秒就关了)。
-$LogDir = Join-Path $PSScriptRoot 'logs'
+$LogDir = Join-Path '<项目目录>' 'logs'
 try { [void](New-Item -ItemType Directory -Force -Path $LogDir) } catch { }
 $LogPath = Join-Path $LogDir 'launcher.log'
 try {
@@ -23,14 +23,13 @@ try {
     Write-Host ("[launcher] 日志开启失败({0}), 继续执行" -f $_.Exception.Message) -ForegroundColor DarkYellow
 }
 
-# 路径自动推导: 脚本所在目录 = 本项目目录; 弹幕采集器和外部语音桥都是可选的, 缺了就跳过
-$ViduRoot    = $PSScriptRoot
-$DanmakuRoot = if ($env:DSH_DANMAKU_ROOT) { $env:DSH_DANMAKU_ROOT } else { Join-Path (Split-Path $PSScriptRoot -Parent) 'multi-danmaku-tts' }
+$ViduRoot    = '<项目目录>'
+$DanmakuRoot = '<弹幕采集目录>'
 $ViduPy      = Join-Path $ViduRoot '.venv\Scripts\python.exe'
 $ViduCfg     = Join-Path $ViduRoot 'config.json'
 $EnginePy    = Join-Path $ViduRoot 'src\engine.py'
-$OmniCmd     = if ($env:DSH_OMNIVOICE_CMD) { $env:DSH_OMNIVOICE_CMD } else { '' }   # 可选
-$BridgeCfg   = if ($env:DSH_VOICE_BRIDGE_CFG) { $env:DSH_VOICE_BRIDGE_CFG } else { '' }   # 可选
+$OmniCmd     = '<语音桥目录>\start-omnivoice-wsl.cmd'
+$BridgeCfg   = '<语音桥目录>\bridge-config.json'
 $StageUrl    = 'http://localhost:8795/stage'   # 用 localhost 而非字面 127.0.0.1: Chrome 里后者可能被代理扩展的"绕过列表"挡掉(2026-10-17 实测: localhost 能开、127.0.0.1 打不开)
 $ApiBase     = 'http://127.0.0.1:8795'
 
@@ -69,7 +68,7 @@ function Get-OmniBase {
     #    绝不返回一个本机不可达的 LAN IP —— 那是"卡死在 [2/4]"的根因。
     $cands = New-Object System.Collections.ArrayList
     [void]$cands.Add('http://127.0.0.1:9877')
-    foreach ($f in @($BridgeCfg, $ViduCfg) | Where-Object { $_ }) {
+    foreach ($f in @($BridgeCfg, $ViduCfg)) {
         try {
             $j = Get-Content $f -Raw -Encoding UTF8 | ConvertFrom-Json
             $b = if ($f -eq $BridgeCfg) { $j.omnivoice.base } else { $j.tts.omnivoice_base }
@@ -166,7 +165,7 @@ if (Test-Port $omniUri.Host $omniUri.Port) {
         if (Wait-Port $omniUri.Host $omniUri.Port 240) { Say '        ✅ 已就绪' Green }
         else { Say '        ⚠ 超时未就绪——数字人可能没声音，先继续（桥/采集器已就绪）' Red }
     } else {
-        Say '        ⏭ 未配置 OmniVoice 启动脚本（可用环境变量 DSH_OMNIVOICE_CMD 指定），跳过' DarkGray
+        Say "        ⚠ 找不到启动脚本 $OmniCmd" Red
     }
 }
 

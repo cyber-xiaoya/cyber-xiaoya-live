@@ -60,7 +60,7 @@ PREFIXES = ["我想看", "我想要", "我想来", "我想", "我要看", "我�
 TAIL_WORDS = ["一个", "一下", "一次", "一份", "呗", "吧", "啊", "呀", "嘛", "哦", "嗯", "啦",
               "咯", "哟", "么", "捏", "谢谢", "好嘛", "好不好", "行吗", "可以吗", "看看",
               "瞧瞧", "吗", "呢"]
-CALL_RE = re.compile(r"^(小雅|雅雅|雅宝|主播|宝(贝)?|老婆|姐姐|妹妹|美女)[,，、!！?？\s~]*")
+CALL_RE = re.compile(r"^(小雅|雅雅|雅宝|小汐|汐汐|汐宝|主播|宝(贝)?|老婆|姐姐|妹妹|美女)[,，、!！?？\s~]*")
 
 # 复合指令的"先后连接词"(2026-10-19 引入, 2026-10-20 回放后收紧):
 #   只认**真的把两个动作串起来**的词。「先 / 再 / 完了 / 最后」一律不算 ——
@@ -84,9 +84,14 @@ def _now() -> float:
 
 # 时间闸豁免(用户 2026-10-13 拍板): 手动手点/手动批准不受任何时间限制;
 # 反过来, 手动动作会登记进"刚做过", 压制自动路径的重复触发。
-MANUAL_SOURCES = ("confirm", "manual")
+MANUAL_SOURCES = ("confirm", "manual", "vip", "choreo")
 AUTO_SOURCES = ("t0", "t2", "t2k", "trust")
 
+
+
+def _ts() -> str:
+    """日志时间戳(2026-10-31): 出问题时要能按时间对账(此前业务日志没有时间)。"""
+    return time.strftime("%H:%M:%S")
 
 class DanmakuRouter:
     def __init__(self) -> None:
@@ -541,7 +546,12 @@ class DanmakuRouter:
         t = (text or "").strip()
         if not t:
             return None
-        is_manual = str(source or "").lower() in MANUAL_SOURCES
+        _src = str(source or "").lower()
+        # 2026-11-01 用户要求: 操作者自己发起的通道(手点/直发/贵宾/编排)不做词表过滤
+        _exempt = [str(x).lower() for x in ((self._filt().get("block_commands") or {}).get("exempt_sources") or [])]
+        if _src in _exempt:
+            return None
+        is_manual = _src in MANUAL_SOURCES
         for w in self._block_words(auto_only=not is_manual):
             if w in t:
                 return w
@@ -551,7 +561,7 @@ class DanmakuRouter:
         cd = self._conf()["cooldown_s"]
         return (_now() - self._last_fire) >= cd
 
-    async def do_fire(self, text: str, source: str) -> bool:
+    async def do_fire(self, text: str, source: str, user: str = "") -> bool:
         # 48 字上限(2026-10-19): 复合指令「先戴上墨镜，然后涂口红」要留得下, 原来切 24 会截断
         text = (text or "").strip()[:48]
         if not text:
@@ -559,11 +569,11 @@ class DanmakuRouter:
         # 🚫 黑名单最先判(2026-10-20): 「站起来」这类不管从 T0/T2/复合/确认条来, 一律不进 Vidu
         if (bw := self.blocked(text, source)) or self.blocked(self._normalize(text), source):
             self._feed_add("blocked", text, "", source)
-            print(f"[dmcmd] 🚫 动作已屏蔽({source}): '{text}' ← 黑名单 '{bw or text}'", flush=True)
+            print(f"[dmcmd {_ts()}] 🚫 动作已屏蔽({source}): '{text}' ← 黑名单 '{bw or text}'", flush=True)
             return False
         if (hit := self._redlined(text)) or self._redlined(self._normalize(text)):
             self._feed_add("blocked", text, "", source)
-            print(f"[dmcmd] 红线拦截({source}): '{text}' ← 命中 '{hit}'", flush=True)
+            print(f"[dmcmd {_ts()}] 红线拦截({source}): '{text}' ← 命中 '{hit}'", flush=True)
             return False
         canon = self.canonical(text)
         # ⭐ 同动作递增窗口(2026-10-13 引入, 2026-10-14 用户拍板收紧)——
@@ -581,10 +591,10 @@ class DanmakuRouter:
                 return False
         if source not in MANUAL_SOURCES and not self._cooled():
             self._feed_add("blocked", text, canon, source)
-            print(f"[dmcmd] 冷却中丢弃({source}): '{text}'", flush=True)
+            print(f"[dmcmd {_ts()}] 冷却中丢弃({source}): '{text}'", flush=True)
             return False
         try:
-            await self.engine.cmd(text, source)      # 带上来源: t0/t0c/t0p/t2/trust/confirm 一眼可查
+            await self.engine.cmd(text, source, user=user)      # 带上来源: t0/t0c/t0p/t2/trust/confirm 一眼可查
         except Exception as e:                       # noqa: BLE001
             self._feed_add("blocked", text, canon, source)
             print(f"[dmcmd] 发送失败({source}) '{text}': {e}", flush=True)
@@ -595,11 +605,11 @@ class DanmakuRouter:
         self._fire_count[canon] = int(self._fire_count.get(canon, 0)) + 1
         self.count(text)
         self._feed_add("fire", text, canon, source)      # 特效: 高亮放大 + 小礼花
-        print(f"[dmcmd] ✅ 触发({source}): {text}", flush=True)
+        print(f"[dmcmd {_ts()}] ✅ 触发({source}): {text}", flush=True)
         return True
 
-    def fire_async(self, text: str, source: str) -> None:
-        asyncio.get_event_loop().create_task(self.do_fire(text, source))
+    def fire_async(self, text: str, source: str, user: str = "") -> None:
+        asyncio.get_event_loop().create_task(self.do_fire(text, source, user))
 
     def note_manual(self, text: str) -> None:
         """手动手点/直发成功后的登记(桥 /api/cmd 调用)。
@@ -619,7 +629,7 @@ class DanmakuRouter:
         if canon:
             self._last_fired_text = canon
             self._feed_add("fire", text, canon, "manual")   # 手点也让特效亮一下
-            print(f"[dmcmd] 🖐 手动直发(不入冷却/不升级窗口): {canon}", flush=True)
+            print(f"[dmcmd {_ts()}] 🖐 手动直发(不入冷却/不升级窗口): {canon}", flush=True)
 
     # ──────────── T2 编译器 ────────────
 
@@ -707,7 +717,7 @@ class DanmakuRouter:
         # 0a) 🚫 动作黑名单(2026-10-20): 「站起来」这类整句直接挡, 连复合/道具都不必再判
         if (bw := self.blocked(content, "t0")):
             self._feed_add("blocked", content, "", "t0")
-            print(f"[dmcmd] 🚫 动作已屏蔽: '{content[:30]}' ← 黑名单 '{bw}'", flush=True)
+            print(f"[dmcmd {_ts()}] 🚫 动作已屏蔽: '{content[:30]}' ← 黑名单 '{bw}'", flush=True)
             return ("blocked", False)
         # 0) 红线先挡整句(真实暴力/政治/脱衣类): 后面的包装/编译都不必再猜
         if (hit := self._redlined(content)):
@@ -717,17 +727,17 @@ class DanmakuRouter:
         # ① 复合指令: 「先戴上墨镜，然后涂口红」→ 整句原样交给 Vidu
         comp = self.composite(content)
         if comp:
-            await self.do_fire(comp, "t0c")
+            await self.do_fire(comp, "t0c", nick)
             return ("fire", False)
         # ② 道具玩具包装: 「拿出AK47」→「拿出玩具AK47」
         toy = self._prop_rewrite(content)
         if toy:
-            await self.do_fire(toy, "t0p")
+            await self.do_fire(toy, "t0p", nick)
             return ("fire", False)
         # T0 兜底复查: 上一拍因冷却转成闲聊的, 这一拍直接命中
         hit = self.match(content)
         if hit:
-            await self.do_fire(hit, "t0")
+            await self.do_fire(hit, "t0", nick)
             return ("fire", False)
         # 预筛: 不像指令就当闲聊, 不花 T2
         # ⚠ 2026-10-19 把这步挪到 T0 **之后**: T0 免费且更准, 而"比个心/歪头笑"这类
@@ -760,7 +770,7 @@ class DanmakuRouter:
         if self._conf()["mode"] == "confirm":
             self.suggest(nick, content, canon, "T2")
         else:
-            await self.do_fire(canon, "t2")
+            await self.do_fire(canon, "t2", nick)
         return ("fire", True)
 
     # ──────────── 确认队列(确认条): 合并重复 + 信任学习, 少打扰 ────────────

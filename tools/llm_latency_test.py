@@ -14,7 +14,7 @@ try:
 except Exception:
     _VERIFY = True
 
-KEY_FILE = r"E:\deepseek-works\vidu-dh\deepseek-key.txt"
+KEY_FILE = r"key.txt"
 SYSTEM = "你是一个口语化的中文数字人助手。"
 PROMPT = ("【直播间弹幕·抖音】观众「星河入梦」说：主播晚上好呀，今天唱的这首歌是什么心情呀\n"
           "（用主播的口吻自然接话：可以叫他的名字，一到两句就够，不要复述他说的话）")

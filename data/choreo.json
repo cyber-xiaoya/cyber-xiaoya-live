@@ -1,0 +1,40 @@
+{
+  "enabled": false,
+  "step_gap_s": 2,
+  "group_gap_s": 15,
+  "step_order": "random",
+  "groups": [
+    {
+      "id": "g1",
+      "name": "招牌小动作",
+      "steps": [
+        {
+          "cmd": "双马尾",
+          "gap_s": null
+        },
+        {
+          "cmd": "凑近看弹幕",
+          "gap_s": null
+        },
+        {
+          "cmd": "歪头笑",
+          "gap_s": null
+        }
+      ]
+    },
+    {
+      "id": "g2",
+      "name": "害羞三连",
+      "steps": [
+        {
+          "cmd": "对镜头比心",
+          "gap_s": null
+        },
+        {
+          "cmd": "戳脸颊卖萌",
+          "gap_s": null
+        }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 默认指向 DeepSeek 官方(api.deepseek.com + deepseek-chat); base_url / model / key_file
 全部在 config.json 里, 以后换 API 只改配置不改代码。key 解析顺序:
-  1. llm.key_file 指向的文本文件(如 C:\\keys\\deepseek-key.txt)
+  1. llm.key_file 指向的文本文件(如 E:\\deepseek-works\\vidu-dh\\deepseek-key.txt)
   2. 环境变量 DEEPSEEK_API_KEY
 流式输出边到边分句: 每凑齐一句就交出去合成, 首字延迟 ≈ LLM 首句时间 + 一次 TTS。
 """
@@ -27,7 +27,7 @@ _THINK_RE = re.compile(r"<think>.*?</think>", re.S | re.I)
 _MD_NOISE_RE = re.compile(r"[*_#`>\[\]~|]")
 
 # 强停顿(必须分句)与弱停顿(句子够长时才分)
-STRONG_ENDS = "。！？!?；;\n"
+STRONG_ENDS = "。！？!?；;"   # 2026-10-29: 不再把换行当句末(模型排版换行会切在句子中间)
 SOFT_ENDS = "，,、"
 
 
@@ -38,7 +38,9 @@ def strip_think(text: str) -> str:
 def clean_for_speech(text: str) -> str:
     """喂给 TTS 前清掉 markdown 噪音与多余空白。"""
     t = _MD_NOISE_RE.sub("", text)
-    t = re.sub(r"[ \t]+", " ", t)
+    # 2026-10-29: 换行/制表符一律当空格, 否则模型排版用的换行会变成"句末"把话切两半
+    t = re.sub(r"[\r\n\t]+", " ", t)
+    t = re.sub(r"[ ]{2,}", " ", t)
     return t.strip()
 
 
@@ -50,7 +52,7 @@ class SentenceStream:
     韵律会碎); 缓冲超过 hard_max(30) 字强制放出(无标点长串兜底)。
     """
 
-    def __init__(self, soft_min: int = 10, hard_max: int = 30):
+    def __init__(self, soft_min: int = 10, hard_max: int = 45):   # 2026-10-29: 30→45, 给标点留出回退区间
         self.buf = ""
         self.soft_min = soft_min
         self.hard_max = hard_max
@@ -70,8 +72,14 @@ class SentenceStream:
                     break
             if cut < 0:
                 if len(self.buf) > self.hard_max:   # 兜底: 强制放行
-                    out.append(self.buf[:self.hard_max].strip())
-                    self.buf = self.buf[self.hard_max:]
+                    # 2026-10-29: 别硬按第 N 个字切(会在句中劈开) → 回退到最近的标点/空格
+                    n = self.hard_max
+                    cut_at = max(self.buf.rfind(c, 0, n) for c in SOFT_ENDS)
+                    sp = self.buf.rfind(" ", 0, n)
+                    if cut_at < 6:
+                        cut_at = sp if sp >= 6 else n - 1
+                    out.append(self.buf[:cut_at + 1].strip())
+                    self.buf = self.buf[cut_at + 1:]
                     continue
                 break
             piece = self.buf[:cut + 1].strip()
@@ -133,7 +141,11 @@ def split_for_tts(text: str, soft_min: int = 10, hard_max: int = 30) -> list[str
 class LLMClient:
     def __init__(self, conf_get):
         self._conf_get = conf_get          # () -> llm 配置段(热改配置立即生效)
-        self.history: collections.deque = collections.deque(maxlen=32)
+        # 2026-10-30: 原来是 maxlen=32(16 轮), history_turns 调到 15 后几乎顶死 —— 留一倍余量
+        self.history: collections.deque = collections.deque(maxlen=48)
+        # 本场统计(2026-11-01 用户要求"显示本场消耗多少 token")
+        self.usage = {"prompt": 0, "completion": 0, "total": 0, "calls": 0}
+        self.turn_count = 0          # 记忆用掉多少轮(礼物时归零, 做"假倒计时")
 
     # ---- 配置 / key ----
 
@@ -153,7 +165,14 @@ class LLMClient:
         return (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
 
     def system_prompt(self) -> str:
-        return self.conf().get("system_prompt") or "你是一个口语化的中文数字人助手。"
+        """人设优先级: config.llm.persona 指向的 personas/<id>.json > llm.system_prompt。
+        (2026-10-29 人设库: 支持并存多套人设, 设置里切换)"""
+        from . import personas as _per
+        conf = self.conf()
+        p = _per.active_prompt(conf)
+        if p:
+            return p
+        return conf.get("system_prompt") or "你是一个口语化的中文数字人助手。"
 
     def _messages(self, user_text: str) -> list[dict]:
         msgs = [{"role": "system", "content": self.system_prompt()}]
@@ -163,8 +182,11 @@ class LLMClient:
 
     # ---- 流式调用 ----
 
-    async def stream(self, user_text: str):
-        """yield 增量文本; 结束后自动把问答写进 history。异常向上抛。"""
+    async def stream(self, user_text: str, record: bool = True):
+        """yield 增量文本; 结束后自动把问答写进 history(record=False 则不写)。异常向上抛。
+
+        record=False 用于**系统自己发起的调用**（空闲主动搭话等）—— 那种 prompt 不是观众
+        说的话，写进 history 会污染上下文（2026-10-29 发现）。"""
         c = self.conf()
         key = self.api_key()
         if not key:
@@ -176,6 +198,8 @@ class LLMClient:
             "stream": True,
             "temperature": float(c.get("temperature", 0.7)),
             "max_tokens": int(c.get("max_tokens", 300)),
+            # 2026-11-01: 让流式响应带上 usage(否则拿不到 token 用量)
+            "stream_options": {"include_usage": True},
         }
         # 思考模式开关(2026-10-10): 官方新模型(deepseek-flash)默认开思考且 effort=high,
         # 思维链会把小 max_tokens 吃光返回空 content → 弹幕短回复必须显式 disabled。
@@ -186,11 +210,25 @@ class LLMClient:
         url = base + "/chat/completions"
         full: list[str] = []
         timeout = httpx.Timeout(30.0, read=300.0)
-        async with httpx.AsyncClient(verify=_VERIFY, timeout=timeout) as client:
+
+        # ── 重试 + 换模型(2026-10-30) ────────────────────────────────
+        # 线上真实故障: DeepSeek 间歇性 503 "Service is too busy" / 读超时,
+        # 原来一次失败就整条回复丢掉 → 观众看到的是"她卡住不说话了"。
+        # 现在: 同一模型重试 2 次 → 再按 llm.fallback_models 换模型 → 都失败才抛。
+        _primary = body.get("model") or "deepseek-chat"
+        _fb = [m for m in ((c.get("fallback_models") or ["deepseek-v4-pro"])) if m and m != _primary]
+        _models = [_primary] + _fb
+        _retry_codes = {429, 500, 502, 503, 504}
+        _last_err: Exception | None = None
+
+        async def _run_once(model: str):
+            body["model"] = model
             async with client.stream("POST", url, headers=headers, json=body) as r:
                 if r.status_code >= 400:
                     text = (await r.aread()).decode("utf-8", "ignore")
-                    raise RuntimeError(f"LLM HTTP {r.status_code}: {text[:300]}")
+                    e = RuntimeError(f"LLM HTTP {r.status_code}: {text[:300]}")
+                    e.status = r.status_code          # type: ignore[attr-defined]
+                    raise e
                 async for line in r.aiter_lines():
                     if not line or not line.startswith("data:"):
                         continue
@@ -201,21 +239,65 @@ class LLMClient:
                         obj = json.loads(payload)
                     except Exception:
                         continue
+                    _u = obj.get("usage")
+                    if isinstance(_u, dict):
+                        self.usage["prompt"] += int(_u.get("prompt_tokens") or 0)
+                        self.usage["completion"] += int(_u.get("completion_tokens") or 0)
+                        self.usage["total"] += int(_u.get("total_tokens") or 0)
+                        self.usage["calls"] += 1
                     delta = ((obj.get("choices") or [{}])[0].get("delta") or {})
                     piece = delta.get("content") or ""
                     if piece:
-                        full.append(piece)
                         yield piece
+
+        async with httpx.AsyncClient(verify=_VERIFY, timeout=timeout) as client:
+            _done = False
+            for _mi, _model in enumerate(_models):
+                for _attempt in range(2):
+                    _got = False
+                    try:
+                        async for _piece in _run_once(_model):
+                            _got = True
+                            full.append(_piece)
+                            yield _piece
+                        _done = True
+                        break
+                    except Exception as _e:            # noqa: BLE001
+                        _code = getattr(_e, "status", None)
+                        _retryable = (_code in _retry_codes) or isinstance(
+                            _e, (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError))
+                        if _got or not _retryable:
+                            raise                     # 已经吐过字 / 非可重试错误 → 不重试
+                        _last_err = _e
+                        print(f"[llm] ⚠ {_model} 第{_attempt+1}次失败({type(_e).__name__}"
+                              f"{' ' + str(_code) if _code else ''}) → "
+                              f"{'重试' if _attempt == 0 else '换下一个模型'}", flush=True)
+                        await asyncio.sleep(0.45 if _attempt == 0 else 0.9)
+                if _done:
+                    break
+            if not _done and _last_err is not None:
+                raise _last_err
         reply = strip_think("".join(full))
         if reply:
-            self.history.append({"role": "user", "content": user_text})
-            self.history.append({"role": "assistant", "content": reply})
+            if record:
+                self.turn_count += 1
+                self.history.append({"role": "user", "content": user_text})
+                self.history.append({"role": "assistant", "content": reply})
 
     def trim_history(self):
         """按 history_turns 截断(2 条/回合)。"""
-        turns = int(self.conf().get("history_turns", 8))
+        turns = int(self.conf().get("history_turns", 15))
         while len(self.history) > turns * 2:
             self.history.popleft()
+
+    def reset_stats(self) -> None:
+        """本场开始: token 用量与记忆轮数归零。"""
+        self.usage = {"prompt": 0, "completion": 0, "total": 0, "calls": 0}
+        self.turn_count = 0
+
+    def reset_turns(self) -> None:
+        """有人送礼 → 记忆"假倒计时"回到满格(不动真实 history)。"""
+        self.turn_count = 0
 
     def reset_history(self):
         self.history.clear()

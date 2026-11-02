@@ -75,7 +75,7 @@ def t_tokens():
     want = hmac.new(b"key", json.dumps(d1).encode(), hashlib.sha256).hexdigest()
     check("authinfo_b64 HMAC 复核", obj["token"] == want, obj["token"][:24])
     check("sign_artc 默认 = HMAC Base64", rtc_tokens.sign_artc("a", "k", "c", "u")["shape"] == "authinfo_b64")
-    usig = rtc_tokens.trtc_usersig("0", "secret", "uid1", 3600)
+    usig = rtc_tokens.trtc_usersig("1600161190", "secret", "uid1", 3600)
     # 变体 base64 还原 → zlib → json → 重算 hmac
     b = usig.replace("*", "+").replace("-", "/").replace("_", "=")
     payload = json.loads(zlib.decompress(base64.b64decode(b)))
@@ -83,7 +83,7 @@ def t_tokens():
                f"TLS.time:{payload['TLS.time']}\nTLS.expire:{payload['TLS.expire']}\n")
     want = base64.b64encode(hmac.new(b"secret", content.encode(), hashlib.sha256).digest()).decode()
     check("TRTC UserSig TLS2.0 hmac 复核", payload["TLS.sig"] == want)
-    multi = rtc_tokens.sign_viewers("trtc", {"trtc": {"sdk_app_id": "0", "secret_key": "secret"}},
+    multi = rtc_tokens.sign_viewers("trtc", {"trtc": {"sdk_app_id": "1600161190", "secret_key": "secret"}},
                                     "chx", ["a", "b"])
     check("sign_viewers 多用户", set(multi) == {"a", "b"})
     try:

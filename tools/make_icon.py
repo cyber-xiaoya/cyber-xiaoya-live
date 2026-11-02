@@ -3,7 +3,7 @@
 设计: 深紫→洋红渐变圆角方块 + 中央麦克风(彩色 emoji, 回退到手绘麦克风) + 弹幕虚线点缀。
 输出: assets/icon-component.ico (16/32/48/64/128/256 多尺寸) 与同名 .png 预览。
 
-跑法: python tools/make_icon.py
+跑法: C:\\Users\\<你>\\AppData\\Local\\Programs\\Python\\Python312\\python.exe tools\\make_icon.py
 """
 import math
 import pathlib

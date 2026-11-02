@@ -29,7 +29,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-READER_LOG = pathlib.Path(r"E:\deepseek-works\multi-danmaku-tts\logs\reader.log")
+READER_LOG = pathlib.Path(r"<弹幕采集目录>\logs\reader.log")
 BRIDGE_LOGS = sorted((ROOT / "logs").glob("bridge.log*"))
 NAMES_PATH = ROOT / "tools" / "replay-names.json"
 OLD_SRC = ROOT / "src" / "_dm_router_old.py"

@@ -268,6 +268,14 @@ button.cmdsend{background:linear-gradient(135deg,#8b5cf6,#d946ef); border:none}
 #cmdGrid button.chip:active{transform:scale(.94)}
 #cmdGrid button.chip.sent{border-color:var(--acc); color:var(--acc); box-shadow:0 0 8px var(--acc)}
 #cmdGrid button.chip.merged{border-color:#DFBE96; color:#DFBE96; box-shadow:0 0 6px rgba(223,190,150,.55)}
+  /* 2026-10-29 点击即时状态: sending=请求中(灰蓝) / busy=已发出·等 Vidu 演(金色+呼吸小点) */
+  #cmdGrid button.chip.sending{border-color:#7f8fa6; color:#93a7c0; opacity:.85;
+    box-shadow:0 0 0 2px rgba(147,167,192,.18) inset}
+  #cmdGrid button.chip.busy{border-color:var(--acc); color:var(--acc); position:relative;
+    box-shadow:0 0 8px var(--acc)}
+  #cmdGrid button.chip.busy::after{content:""; position:absolute; right:4px; top:4px; width:5px; height:5px;
+    border-radius:50%; background:var(--acc); animation:cmdBusy 1s ease-in-out infinite}
+  @keyframes cmdBusy{0%,100%{opacity:.3}50%{opacity:1}}
 /* 🎲 拟人化「随机表演」(2026-10-16 用户点单): 组标题行里的开关 + 两个下拉 + 顶栏运行指示 */
 #cmdGrid .cgroup h4.rndh{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
 #rndBtn{background:#0d1526; border:1px solid var(--line); color:var(--txt); border-radius:8px;
@@ -306,6 +314,37 @@ button.ghost.mini{padding:1px 6px; font-size:11px; margin-left:8px}
 #refs .sbar button{padding:5px 10px; border-radius:9px; cursor:pointer}
 #refThumb{flex:1; min-height:0; overflow:auto; padding:10px 14px}
 #refThumb img{max-width:100%; border-radius:10px; border:1px solid var(--line); display:block}
+/* ── 口播工作台(2026-10-26): 右侧滑入面板 ── */
+#koubo{position:absolute; inset:0; width:auto; background:var(--panel);
+  border-left:1px solid var(--line); z-index:70; display:flex; flex-direction:column;
+  transform:translateX(103%); transition:transform .25s ease; will-change:transform}
+#koubo.open{transform:translateX(0); box-shadow:-10px 0 30px rgba(0,0,0,.4)}
+#koubo .shead{display:flex; justify-content:space-between; align-items:center; padding:10px 14px;
+  border-bottom:1px solid var(--line); font-weight:600}
+#koubo .sbar{display:flex; gap:6px; align-items:center; padding:8px 14px; border-bottom:1px solid var(--line); flex-wrap:wrap}
+#void{display:none}
+#kbText{width:100%; min-height:110px; background:#0d1526; color:var(--txt); border:1px solid var(--line);
+  border-radius:8px; padding:8px; font:13px/1.6 inherit; resize:vertical}
+#kbList{flex:1; min-height:0; overflow-y:auto; padding:10px 12px}
+.kbseg{border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:8px; background:#111a2b}
+.kbseg.playing{border-color:var(--acc); box-shadow:0 0 10px rgba(224,86,45,.35)}
+.kbseg .kbhead{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--dim); flex-wrap:wrap}
+.kbseg .kbhead b{color:var(--txt)}
+.kbseg textarea{width:100%; min-height:52px; margin:6px 0; background:#0d1526; color:var(--txt);
+  border:1px solid var(--line); border-radius:6px; padding:6px; font:13px/1.5 inherit; resize:vertical}
+.kbseg .kbrow{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+.kbseg button{padding:3px 9px; border-radius:8px; background:#0d1526; border:1px solid var(--line);
+  color:var(--txt); cursor:pointer; font-size:12px}
+.kbseg button:hover{border-color:var(--acc); color:var(--acc)}
+.kbseg select{background:#0d1526; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:2px 4px; font-size:12px}
+.kbact{font-size:12px; color:#DFBE96; margin-top:4px; white-space:pre-wrap}
+#kbCmdWrap{border-bottom:1px solid var(--line); padding:8px 12px}
+#kbCmdWrap h4{margin:0 0 6px; color:#DFBE96; font-size:12px; font-weight:600}
+#kbCmdWrap .chips{display:flex; flex-wrap:wrap; gap:6px}
+#kbCmdWrap button.chip{background:#0d1526; border:1px solid var(--line); color:var(--txt);
+  padding:5px 11px; border-radius:14px; cursor:pointer; font-size:13px}
+#kbCmdWrap button.chip:hover{border-color:var(--acc); color:var(--acc)}
+
 #refThumb .hint{color:var(--dim); font-size:12px; line-height:1.7}
 #refThumb .hint b{color:#DFBE96; font-weight:600}
 /* ── 音色热切面板(同歌单/指令: 右侧滑入) ── */
@@ -329,18 +368,20 @@ button.ghost.mini{padding:1px 6px; font-size:11px; margin-left:8px}
 #voiceList .vprev:hover{color:var(--acc); border-color:var(--acc)}
 #voiceList .vprev:disabled{opacity:.5; cursor:wait}
 #songGrid{flex:1; min-height:0; overflow-y:auto; padding:10px 12px; display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:8px; align-content:start}
+  grid-template-columns:repeat(auto-fill, minmax(210px,1fr)); gap:8px; align-content:start;
+    grid-auto-rows:min-content}
 .song{position:relative; background:#0d1526; border:1px solid var(--line); color:var(--txt);
-  border-radius:10px; padding:9px 26px 8px 10px; cursor:pointer; font-size:13px; line-height:1.35;
+  border-radius:10px; padding:5px 34px 5px 8px; cursor:pointer; font-size:12px; line-height:1.25;
+    display:flex; align-items:baseline; gap:6px; min-height:30px;
   overflow:hidden}
-.song .t{white-space:nowrap; text-overflow:ellipsis; overflow:hidden}
-.song small{display:block; color:#61728c; font-size:10px}
+.song .t{flex:1 1 auto; min-width:0; white-space:nowrap; text-overflow:ellipsis; overflow:hidden}
+.song small{flex:0 0 auto; color:#61728c; font-size:8.5px; white-space:nowrap}
 .song:hover{border-color:#3b82f6}
 .song.playing{border-color:#22c55e; color:#a9f0d4; box-shadow:0 0 0 1px #22c55e inset, 0 0 12px rgba(34,197,94,.28)}
 .song .del,.song .scr{position:absolute; background:transparent; border:0; color:#5b6b84;
   cursor:pointer; border-radius:6px; line-height:1}
-.song .del{right:3px; top:4px; font-size:13px; padding:2px 5px}
-.song .scr{right:3px; bottom:3px; font-size:11px; padding:1px 5px}
+.song .del{right:2px; top:2px; font-size:10px; padding:0 3px}
+.song .scr{right:2px; bottom:2px; font-size:10px; padding:0 3px}
 .song .del:hover{color:#ff6b6b; background:#1a1220}
 .song .scr:hover{color:#f0a13c; background:#1a1608}
 #songGrid .empty{grid-column:1/-1; color:#61728c; text-align:center; padding:26px 0; font-size:13px}
@@ -379,6 +420,15 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
 .toast.bad{border-color:var(--bad); color:#ffb4b4}
 @keyframes fade{from{opacity:0; transform:translateY(-6px)}to{opacity:1}}
 .kbd{color:#61728c; font-size:11px}
+/* 📊 统计数字变化动效(2026-11-01 用户要求"丝滑") */
+@keyframes stBump{
+  0%   { transform:scale(1);    text-shadow:0 0 0 rgba(140,190,255,0); }
+  28%  { transform:scale(1.14); text-shadow:0 0 10px rgba(140,190,255,.85); }
+  100% { transform:scale(1);    text-shadow:0 0 0 rgba(140,190,255,0); }
+}
+#statsBar .stbump{ animation:stBump .62s cubic-bezier(.22,1,.36,1); display:inline-block; will-change:transform }
+#statsBar span[id^="st"]{ transition:color .35s ease }
+
 </style>
 </head>
 <body>
@@ -391,6 +441,7 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
     <span class="pill" id="voicePill" style="display:none"></span>
     <span class="pill" id="rndBadge" style="display:none" title="拟人化随机表演运行中 · 点击停止"></span>
     <span class="pill" id="fxPill" style="cursor:pointer" title="画面右侧「当前执行动作」滚动特效 · 点一下开关">🎬 特效 开</span>
+    <span class="pill" id="statsPill" style="cursor:pointer" title="歌词上方统计条：token / 积分 / 钻石 / 记忆轮数 · 点一下开关">📊 统计 开</span>
     <span class="sp"></span>
       <button class="ghost" id="btnSplitFold" title="折叠/展开右栏（视频占满整屏）">⤢ 全屏视频</button>
     <button class="ghost" id="btnDrawer">⚙ 设置</button>
@@ -401,7 +452,32 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
     <div id="videoWrap">
       <img id="avatarStill" alt="" style="display:none">
       <video id="video" playsinline autoplay muted></video>
-      <div id="lyricBox" style="display:none"></div>
+      <div id="statsBar" style="display:none; position:absolute; left:22px; top:calc(50% - 372px);
+     z-index:30; pointer-events:none; flex-direction:column; gap:4px; width:204px">
+  <div style="background:rgba(6,10,18,.8); border:1px solid rgba(120,150,200,.3); border-left:3px solid #7aa2ff; border-radius:9px; padding:4px 10px; backdrop-filter:blur(6px); font:12px/1.3 'Segoe UI','Microsoft YaHei',sans-serif; color:#cfe0f5">
+    <div style="font-size:10px; letter-spacing:.08em; margin-bottom:2px; color:#8fb0dc; margin-bottom:3px">本场消耗</div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1px"><span style="color:#9fb6d4">Token</span>
+      <span id="stTokens" style="font-size:16px; font-weight:700; color:#eaf3ff">0</span></div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline"><span style="color:#9fb6d4">积分</span>
+      <span id="stCredits" style="font-size:16px; font-weight:700; color:#eaf3ff">0</span></div>
+    <div id="stCalls" style="font-size:9.5px; color:#7f93ad; text-align:right; margin-top:1px">0 次调用</div>
+  </div>
+
+  <div style="background:rgba(6,10,18,.8); border:1px solid rgba(120,150,200,.3); border-left:3px solid #ffc46b; border-radius:9px; padding:4px 10px; backdrop-filter:blur(6px); font:12px/1.3 'Segoe UI','Microsoft YaHei',sans-serif; color:#cfe0f5">
+    <div style="font-size:10px; letter-spacing:.08em; margin-bottom:2px; color:#dcb87f; margin-bottom:3px">本场收到</div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1px"><span style="color:#9fb6d4">礼物</span>
+      <span id="stGifts" style="font-size:16px; font-weight:700; color:#fff3e0">0</span></div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline"><span style="color:#9fb6d4">约钻石</span>
+      <span id="stDiamonds" style="font-size:16px; font-weight:700; color:#fff3e0">0</span></div>
+  </div>
+
+  <div style="background:rgba(6,10,18,.8); border:1px solid rgba(120,150,200,.3); border-left:3px solid #7de2b0; border-radius:9px; padding:4px 10px; backdrop-filter:blur(6px); font:12px/1.3 'Segoe UI','Microsoft YaHei',sans-serif; color:#cfe0f5">
+    <div style="font-size:10px; letter-spacing:.08em; margin-bottom:2px; color:#8fd8b8; margin-bottom:3px">本场记忆</div>
+    <div style="display:flex; justify-content:space-between; align-items:baseline"><span style="color:#9fb6d4">还剩</span>
+      <span id="stMemory" style="font-size:16px; font-weight:700; color:#eafff6">15/15</span></div>
+  </div>
+</div>
+<div id="lyricBox" style="display:none"></div>
   <div id="capOverlay" style="display:none"><div class="capInner"></div></div>
       <div id="mask">
         <h2>▶ 连线数字人</h2>
@@ -432,6 +508,7 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
     <button id="btnSongs" title="点播歌单：歌曲/音频，点击即播">🎵 点播歌单</button>
     <button id="btnCmds" title="快捷指令：点击=打字发送，指挥她做动作">🕹 快捷指令</button>
     <button id="btnRefs" title="参考图：换装 / 拿起指定商品 / 换背景（会话内生效，不额外计费）">🖼 参考图</button>
+        <button id="btnKoubo" title="口播工作台：长文切分 / 分段合成 / 顺序连播">📝 口播</button>
   </div>
 </div>
 
@@ -445,7 +522,15 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
 
 <div id="cmds">
   <div class="shead"><span>🕹 快捷指令 <span style="color:var(--dim); font-weight:400">点击 = 直发 Vidu 做动作 · 不经 LLM</span></span>
+    <button class="ghost" id="btnActStop" title="停止当前动作：清空待发队列 + type7 打断正在说的话" style="margin-right:6px">⏹ 停止动作</button>
+    <button class="ghost" id="btnCmdClear" title="只清空待发队列，不打断正在说的话" style="margin-right:6px">🧹 清空</button>
+    <span id="vipBadge" title="本场送过 &gt;99 钻的贵宾"
+          style="display:none;margin-right:6px;font-size:12px;color:#DFBE96;border:1px solid #DFBE96;border-radius:10px;padding:1px 7px"></span>
     <button class="ghost" id="btnCmdsX">✕</button></div>
+  <div class="sbar" id="cmdsTabs" style="gap:8px">
+    <button class="ghost" id="tabCmds" style="flex:1">🕹 动作</button>
+    <button class="ghost" id="tabChoreo" style="flex:1">🎬 编排</button>
+  </div>
   <div class="sbar" id="autoRow">
     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
       <input type="checkbox" id="autoMatchChk"> <span style="font-weight:600">自动匹配</span></label>
@@ -463,7 +548,83 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
     <button class="ghost" id="btnCmdImport" type="button" title="粘贴配置导入">⇧ 导入</button>
     <span style="color:var(--dim); font-size:12px" id="cmdEditTip">关 = 点一下即发送</span>
   </div>
+<div id="kbCmdWrap" style="display:none">
+    <h4 id="kbCmdHead" style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px"
+        title="点一下展开/收起（口播稿生成的动作描述，不是快捷动作）">
+      <span id="kbCmdArrow">▸</span><span>🎬 口播动作</span>
+      <span id="kbCmdHint" style="color:var(--dim);font-weight:400;font-size:11px">默认收起 · 点标题展开</span>
+    </h4>
+    <div class="chips" id="kbCmdChips" style="display:none"></div>
+  </div>
+
   <div id="cmdGrid"></div>
+
+<div id="choreo" style="display:none; margin-top:6px">
+  <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+    <b style="color:#DFBE96">🎬 固定编排</b>
+    <span id="chState" style="font-size:12px;color:var(--dim)">加载中…</span>
+    <span style="flex:1"></span>
+    <button class="ghost" id="chStart">▶ 开始</button>
+    <button class="ghost" id="chStop">⏹ 停止</button>
+    <button class="ghost" id="chX" title="收起编排，回到动作列表">✕ 收起</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12px;
+       color:var(--dim);margin-bottom:8px">
+    <label style="white-space:nowrap">组内 <input type="number" id="chStepGap" min="0.5" step="0.5"
+       value="2" style="width:52px"> 秒</label>
+    <label style="white-space:nowrap">组间 <input type="number" id="chGroupGap" min="1" step="1"
+       value="15" style="width:52px"> 秒</label>
+    <label style="white-space:nowrap">顺序 <select id="chOrder" style="width:78px">
+      <option value="random">随机</option><option value="order">按顺序</option>
+    </select></label>
+  </div>
+  <div id="chGroups" style="display:flex;flex-direction:column;gap:8px"></div>
+  <div style="border-top:1px solid var(--line);margin:10px 0 8px"></div>
+
+  <div style="background:rgba(10,16,26,.6);border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:10px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+      <b style="color:#DFBE96;font-size:12px">🎯 从现有动作挑选</b>
+      <select id="chPickSrc" style="flex:1;min-width:130px"></select>
+      <span style="font-size:11px;color:var(--dim)">加到</span>
+      <select id="chPickDst" style="flex:1;min-width:110px"></select>
+    </div>
+    <div class="chips" id="chPickChips" style="max-height:132px;overflow:auto"></div>
+    <div style="font-size:11px;color:var(--dim);margin-top:4px">
+      点一下动作 → 直接加到"加到"里选的目标；选「新组（草稿）」则追加到下方文本框。
+    </div>
+  </div>
+
+  <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <input type="text" id="chName" placeholder="新组名，例：招牌三连" style="flex:1">
+    <button class="ghost" id="chAdd">＋ 添加组</button>
+  </div>
+  <textarea id="chSteps" placeholder="每行一条动作命令（顺序执行），例：&#10;双马尾&#10;凑近看弹幕&#10;歪头笑" style="width:100%;height:88px;background:#0d1526;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px;font:13px/1.5 inherit"></textarea>
+  <div style="display:flex;gap:6px;margin-top:8px">
+    <button class="ghost" id="chSave">💾 保存</button>
+    <span class="hint" style="color:var(--dim);font-size:12px">改完记得保存；运行时按保存后的内容走</span>
+  </div>
+</div>
+</div>
+
+<div id="koubo">
+  <div class="shead"><span>📝 口播工作台 <span style="color:var(--dim); font-weight:400">切分 · 合成 · 连播</span></span>
+    <button class="ghost" id="btnKouboX">✕</button></div>
+  <div class="sbar">
+    <textarea id="kbText" placeholder="粘贴长文（会自动按标点切分，英文/数字/百分比/URL 不会被切断）"></textarea>
+  </div>
+  <div class="sbar">
+    <label style="color:var(--dim);font-size:12px">每段字数
+      <input id="kbMax" type="number" min="20" max="200" value="60" style="width:64px;background:#0d1526;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:3px"></label>
+    <button class="ghost" id="kbSplit">切分</button>
+    <button class="ghost" id="kbTtsAll" title="按顺序合成所有还没音频的段">⚡ 合成全部</button>
+    <button class="ghost" id="kbActionsAll">生成全部动作</button>
+    <button class="ghost" id="kbPlayAll">▶ 连播</button>
+    <button class="ghost" id="kbStop">■ 停止</button>
+    <label style="color:var(--dim);font-size:12px">间隔(0=无缝)
+      <input id="kbGap" type="number" min="0" max="5" step="0.1" value="0" style="width:56px;background:#0d1526;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:3px">s</label>
+  </div>
+  <div class="sbar" id="kbStatus" style="color:var(--dim);font-size:12px">未切分</div>
+  <div id="kbList"></div>
 </div>
 
 <div id="confirmBar" style="display:none"></div>
@@ -542,10 +703,29 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
       <div class="row"><label>音色预设</label><select id="s_voice"></select>
         <button id="btnVoiceRefresh" class="ghost">刷新</button>
         <button id="btnPreview" class="ghost">▶ 试听</button></div>
-      <div class="row"><label>试听文本</label><input type="text" id="s_prevtxt" value="你好呀，这是我的声音，今天也要开心哦。"></div>
+      <div class="row"><label>试听文本</label><input type="text" id="s_prevtxt" data-auto="1" value="你好呀，这是我的声音，今天也要开心哦。"></div>
       <div class="row"><label>喂流帧长(ms)</label><input type="number" id="s_chunk" min="20" max="1000" step="20">
         <label>输出按句 type10</label><input type="checkbox" id="s_persent" class="chk"></div>
       <div class="hint">音色库目录（与语音桥同源，design.json / ref_audio+omnivoice.txt）见 config.json 的 tts.voices_dir。</div>
+    </div>
+
+    <div class="sect"><h3>⭐ 专属会员（进场自动欢迎）</h3>
+      <div class="row"><input type="text" id="ptNick" placeholder="抖音昵称（要精确）" style="width:130px">
+        <input type="text" id="ptAlias" placeholder="称呼（可空）" style="width:100px">
+        <button id="btnPtAdd" class="ghost">＋ 添加</button></div>
+      <div class="row"><input type="text" id="ptNote" placeholder="备注，例：老观众，爱听老歌" style="flex:1">
+        <button id="btnPtTest" class="ghost">🔊 测试欢迎</button></div>
+      <div id="ptList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+      <div class="hint">名单存 data/patrons.json；朗读器只在名单内昵称进场时通知桥（不转发全部进场）。</div>
+    </div>
+
+    <div class="sect"><h3>🎭 人设（多套并存 · personas/ 目录）</h3>
+      <div class="row"><label>当前人设</label>
+        <select id="s_persona" style="flex:1"></select>
+        <button id="btnPersonaApply" class="ghost">应用</button>
+        <button id="btnPersonaReload" class="ghost">刷新</button></div>
+      <div class="row"><button id="btnPersonaSave" class="ghost">💾 把下面文本框保存到当前人设</button></div>
+      <div class="hint" id="personaHint">切换后下一条回复生效；对话记忆会清空。</div>
     </div>
 
     <div class="sect"><h3>LLM（OpenAI 兼容 · 默认 DeepSeek）</h3>
@@ -554,7 +734,7 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
       <div class="row"><label>key 文件</label><input type="text" id="s_llm_keyfile" placeholder="留空 = 环境变量 DEEPSEEK_API_KEY"></div>
       <div class="row"><label>temperature</label><input type="number" id="s_llm_temp" step="0.1" min="0" max="2">
         <label>max_tokens</label><input type="number" id="s_llm_maxtok" min="50" step="50"></div>
-      <div class="row"><label>人设 system</label></div>
+      <div class="row"><label>人设 system<span id="llmSysHint" style="color:var(--dim);font-weight:400"></span></label></div>
       <textarea id="s_llm_sys"></textarea>
       <div class="row"><button id="btnLlmReset" class="ghost">清空对话记忆</button></div>
     </div>
@@ -641,6 +821,7 @@ input[type=text]:focus,textarea:focus{border-color:#3b82f6}
 
 <div id="toasts"></div>
 
+<!-- 🎬 固定编排(2026-11-01) -->
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -1298,10 +1479,182 @@ function cmdFxClear(){
 })();
 
 /* ───────── 轮询状态/字幕 ───────── */
+/* 📊 本场统计(2026-11-01): token / Vidu积分 / 钻石 / 记忆轮数 · 顶栏可开关 */
+let STATS_ON = (localStorage.getItem("s2s.stage.stats") !== "0");
+
+function statsApply(){
+  const bar = $("statsBar"), pill = $("statsPill");
+  if (bar) bar.style.display = STATS_ON ? "flex" : "none";
+  if (pill){ pill.textContent = STATS_ON ? "📊 统计 开" : "📊 统计 关";
+             pill.style.opacity = STATS_ON ? "1" : ".55"; }
+}
+
+function fmtNum(n){
+  n = Number(n) || 0;
+  if (n >= 1e6) return (n/1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n/1e3).toFixed(1) + "k";
+  return String(Math.round(n));
+}
+
+/* 数字补间: 从当前显示值平滑过渡到目标值(easeOutCubic), 变化时加一次呼吸放大 */
+const ST_ANIM = { tokens: 0, credits: 0, gifts: 0, diamonds: 0, memLeft: 0 };
+
+/* 千分位: 1234567 → 1,234,567 (2026-11-01 用户要求传统阅读习惯) */
+function stFmt(n){
+  const v = Math.round(Number(n) || 0);
+  return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function stBump(el){
+  if (!el) return;
+  el.classList.remove("stbump");
+  void el.offsetWidth;              // 强制重排, 让动画重播
+  el.classList.add("stbump");
+  clearTimeout(el._stbT);
+  el._stbT = setTimeout(()=>el.classList.remove("stbump"), 700);
+}
+
+function stSetNum(id, key, target, suffix){
+  const el = $(id); if (!el) return;
+  const to = Math.max(0, Math.round(Number(target) || 0));
+  const from = Number(ST_ANIM[key] || 0);
+  ST_ANIM[key] = to;
+  if (from === to){ el.textContent = stFmt(to) + (suffix || ""); return; }
+  const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+  const dur = Math.min(620, 240 + Math.abs(to - from) * 1.2);   // 变化越大越慢一点
+  const tick = (now)=>{
+    const t = now || (typeof performance !== "undefined" ? performance.now() : Date.now());
+    const p = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);                              // easeOutCubic
+    const v = Math.round(from + (to - from) * e);
+    el.textContent = stFmt(v) + (suffix || "");
+    if (p < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  stBump(el);
+}
+
+function renderStats(st){
+  const s = (st && st.stats) || {};
+  const tk = s.tokens || {};
+  const mem = s.memory || {};
+  const cr = (s.credits) || {};
+  const el = (id) => $(id);
+  // 2026-11-01 版式三块 + 数字补间动效(用户要求"变化时丝滑")
+  const plain = (n) => String(Math.max(0, Math.round(Number(n) || 0)));
+  if (el("stTokens")) stSetNum("stTokens", "tokens", tk.total, "");
+  if (el("stCredits")) stSetNum("stCredits", "credits", cr.spent, "");
+  if (el("stCalls")) el("stCalls").textContent =
+    `${stFmt(tk.calls)} 次调用 · 提示${stFmt(tk.prompt)} / 生成${stFmt(tk.completion)}`;
+  if (el("stGifts")) stSetNum("stGifts", "gifts", s.gifts, " 份");
+  if (el("stDiamonds")) stSetNum("stDiamonds", "diamonds", s.diamonds, "");
+  if (el("stMemory")){
+    const total = mem.total || 15;
+    const left = Math.max(0, total - (mem.used || 0));
+    stSetNum("stMemory", "memLeft", left, "/" + total + " 轮");
+  }
+
+}
+
+/* 📊 统计面板可拖动(2026-11-01 用户要求): 拖动记位置, 双击复位 */
+const STATS_POS_KEY = "s2s.stage.statsPos";
+const STATS_DEFAULT = { left: 22, top: null };   // top=null 表示用 CSS 里的默认位置
+
+function statsApplyPos(){
+  const el = $("statsBar"); if (!el) return;
+  let p = null;
+  try{ p = JSON.parse(localStorage.getItem(STATS_POS_KEY) || "null"); }catch(e){ p = null; }
+  if (p && typeof p.left === "number" && typeof p.top === "number"){
+    el.style.left = Math.max(0, p.left) + "px";
+    el.style.top = Math.max(0, p.top) + "px";
+  }else{
+    el.style.left = ""; el.style.top = "";      // 回到 CSS 默认
+  }
+}
+
+function statsInitDrag(){
+  const el = $("statsBar"); if (!el || el._dragReady) return;
+  el._dragReady = true;
+  el.style.pointerEvents = "auto";
+  el.style.cursor = "grab";
+  el.style.userSelect = "none";
+  el.title = "可以拖动到我想要的任意位置（双击复位）";
+
+  let sx = 0, sy = 0, ox = 0, oy = 0, dragging = false;
+  el.addEventListener("pointerdown", (ev)=>{
+    if (ev.button !== 0) return;
+    const r = el.getBoundingClientRect();
+    const host = el.offsetParent ? el.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+    dragging = true;
+    sx = ev.clientX; sy = ev.clientY;
+    ox = r.left - host.left; oy = r.top - host.top;
+    el.style.left = ox + "px"; el.style.top = oy + "px";
+    el.style.cursor = "grabbing";
+    try{ el.setPointerCapture(ev.pointerId); }catch(e){}
+    ev.preventDefault();
+  });
+  el.addEventListener("pointermove", (ev)=>{
+    if (!dragging) return;
+    const host = el.offsetParent || document.body;
+    const hw = host.clientWidth, hh = host.clientHeight;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    let nx = ox + (ev.clientX - sx);
+    let ny = oy + (ev.clientY - sy);
+    nx = Math.max(0, Math.min(nx, Math.max(0, hw - w)));
+    ny = Math.max(0, Math.min(ny, Math.max(0, hh - h)));
+    el.style.left = nx + "px";
+    el.style.top = ny + "px";
+  });
+  const stop = (ev)=>{
+    if (!dragging) return;
+    dragging = false;
+    el.style.cursor = "grab";
+    try{
+      const host = el.offsetParent ? el.offsetParent.getBoundingClientRect() : { left: 0, top: 0 };
+      const r = el.getBoundingClientRect();
+      localStorage.setItem(STATS_POS_KEY, JSON.stringify({
+        left: Math.round(r.left - host.left), top: Math.round(r.top - host.top) }));
+    }catch(e){}
+  };
+  el.addEventListener("pointerup", stop);
+  el.addEventListener("pointercancel", stop);
+  el.addEventListener("dblclick", ()=>{
+    try{ localStorage.removeItem(STATS_POS_KEY); }catch(e){}
+    statsApplyPos();
+    toast("统计面板位置已复位");
+  });
+  window.addEventListener("resize", ()=>{ statsApplyPos(); });
+}
+
+$("statsPill") && $("statsPill").addEventListener("click", ()=>{
+  STATS_ON = !STATS_ON;
+  try{ localStorage.setItem("s2s.stage.stats", STATS_ON ? "1" : "0"); }catch(e){}
+  statsApply();
+statsInitDrag(); statsApplyPos();
+  if (!STATS_ON) return;
+  statsInitDrag(); statsApplyPos();
+  api("/api/live/status").then(renderStats).catch(()=>{});
+});
+statsApply();
+statsInitDrag(); statsApplyPos();
+
+function renderVipBadge(st){
+  const el = $("vipBadge"); if (!el) return;
+  const v = (st && st.vip) || null;
+  const list = (v && v.list) || [];
+  if (!list.length){ el.style.display = "none"; return; }
+  el.style.display = "";
+  el.textContent = "⭐ 贵宾 " + list.length + (list[0] ? " · " + list[0].nick : "");
+  el.title = "本场贵宾（最近达标在前）：\n" +
+    list.map(x => `${x.nick} · ${x.spent}钻 · ${x.count}次 · ${x.ago_s}s前`).join("\n");
+}
+
 async function poll(){
   try{
     const st = await api("/api/live/status?since=" + state.since);
     state.phase = st.phase;
+    renderVipBadge(st);
+    renderStats(st);
     const pill = $("phasePill");
     pill.className = "pill " + (st.active ? "live" : (st.error ? "err" : ""));
     pill.textContent = st.active ? (st.mode === "managed" ? "直播中 · 托管RTC" : "直播中 · 自备RTC")
@@ -1403,6 +1756,16 @@ async function sendCmdText(t, silent){
 }
 /* 让某条动作的 chip 闪一下: sent=金色(真发出) / merged=琥珀(被合并, 没真发)。
    随机表演和手动点击共用 → 面板上"哪条在动"始终看得见。 */
+/* 2026-10-29 点击状态: 按下去立刻"发送中", 发出后"等它演"(金色+呼吸小点, 约 4 秒) */
+const CMD_BUSY_MS = 4000;      // Vidu 侧一条动作大致演多久(纯前端提示, 不影响发送)
+function markChipBusy(b){
+  if (!b) return;
+  b.classList.remove("busy", "merged");
+  void b.offsetWidth;                       // 强制重排, 让动画重播
+  b.classList.add("busy");
+  clearTimeout(b._busyT);
+  b._busyT = setTimeout(()=>b.classList.remove("busy"), CMD_BUSY_MS);
+}
 function flashChip(cmd, r){
   const cls = r === "sent" ? "sent" : (r === "deferred" ? "merged" : "");
   if (!cls) return;
@@ -1451,17 +1814,45 @@ const CMD_GROUPS = [
   ["🍉 吃喝", ["吃西瓜","吃榴莲","吃棒棒糖","吃雪糕","吃苹果","吃汉堡","吃薯条","吃饺子","吃小龙虾","喝可乐","嗑瓜子","吃泡面","吃葡萄","喝奶茶"]],
   ["💇 动作外表", ["双马尾",["头发别到耳后","别头发"],"高马尾","扎丸子头","甩头发","戴上蝴蝶结发夹","编辫子","反戴棒球帽","绕头发","拿出墨镜戴上","涂口红"]],
   ["🎭 拟人化动作", [
-    // 示例：只保留 10 条（随机抽样）。其余动作请在舞台页「✏️ 编辑」里自行添加/命名
-    "托腮发呆",
-    "捂嘴偷笑",
-    "抚摸肩颈",
-    "对镜头竖大拇指",
-    ["鬼脸","akanbe"],
-    "张开双臂求抱抱",
-    "凑近亲镜头",
-    "飞吻",
-    "戴上红色凤冠",
-    "拿出琵琶",
+    // ① 实测高频（2026-10-18 按真实触发次数排序：对镜头比心119 / 麦克风唱歌72 / 凑近眨眼比耶61 /
+    //    双马尾53 / 高马尾51 / 凑近看弹幕49 / 别头发48 / 轻轻地跳舞47 / 歪头笑46 / 求抱抱30）
+    ["比心","对镜头比心"],"拿出麦克风唱歌","凑近眨眼比耶","双马尾","高马尾","凑近看弹幕",
+    ["头发别到耳后","别头发"],"轻轻地跳舞","歪头笑","张开双臂求抱抱",
+    // ①b 原本点名、数据中等的（保留在手边）
+    "俏皮敬礼","冲镜头挥手","假哭擦泪","咬指甲紧张","捧脸杀","甩头发",
+    // ② 新增批次(2026-10-16 三条 + 10-15 三条 + 10-14 十九条; 见 tools/actions-batch-拟人化*.json)
+    "撒娇八连","拿出琵琶","戴上红色凤冠",
+    "凑近比耶害羞","穿东北花棉袄","挤眉弄眼做鬼脸",
+    "戳脸颊卖萌","对手指害羞","摸耳垂害羞","对镜头竖大拇指","双手合十道谢","手背擦汗松口气",
+    "抚摸肩颈","双手投降卖萌","对镜头画一颗心","戳屏幕逗观众","认真整理衣领","拍额头恍然大悟",
+    "手指点下巴思考","食指竖唇边安静","摊手耸肩无奈","向后靠椅背放松","数手指比数字",
+    // ③ 其余(用户未点名; 2026-10-16 按用户要求去掉"轻轻点头/掩面害羞"；
+    //    同日按用户实测反馈删"对镜头勾手邀请/抱臂打冷颤/捂嘴小哈欠/鼓腮嘟嘴/学猫伸爪"，
+    //    "抱臂打冷颤"→重建为"抚摸肩颈"，"假装生气"描述改为双手叉腰+凑近镜头+手指点镜头
+    //    ⚠ 2026-10-18: "轻轻地跳舞"/"张开双臂求抱抱" 已提到 ①，此处去重)
+    // 🚫 2026-10-20 用户要求: "站起来"已从面板移除(黑名单见 tools/dm-filter.json block_commands)
+    "转一圈","小伸懒腰","加油打气","拍手叫好",
+    "点关注","举牌应援","打个响指","飞吻",["靠近镜头wink","眨单眼"],"捂嘴偷笑",
+    // "吐舌头卖萌"保留在手边: 观众弹幕触发的会被黑名单(auto_only_words)拦, 自己手点/打字照常执行
+    "吐舌头卖萌",
+    "假装生气","比枪发射爱心","凑近亲镜头","拉钩钩","托腮发呆","困意揉眼",
+    // 🆕 2026-10-20 用户给的英文动作 id 批(逐个手动测试中): [显示名(精简中文), 下发命令(原样英文)]
+    ["鬼脸","akanbe"],["手框","finger frame"],["恶魔角","horns pose"],["圈圆","o arms"],
+    ["飞机手","airplane arms"],["握拳","hands clasped in delight"],["大小姐","ojou-sama pose"],
+    ["叉腰","hand on hip"],["双叉腰","hands on hips"],["别发","tucking hair"],
+    ["挡光","hand near forehead"],["摊手","palms up"],["叠手","hands folded in lap"],
+    ["抚心","hand over heart"],["捧脸","cupping own cheek"],["托腮","hand supporting chin"],
+    ["低头","looking down"],["前倾","leaning forward"],["秀肌","flexing"],
+  ]],
+  // 🖐 手势（2026-10-30 用户要求单独成组）: 手部动作 + 结印，显示中文 / 下发原英文 id
+  ["🖐 手势", [
+    ["瓦肯礼","vulcanSalute"], ["加油握拳","ganbaru pose"], ["拱手礼","palmFistGreeting"], ["摇滚礼","rockOn"],
+    ["猫爪","paw pose"], ["爪子","claw pose"], ["九字印","kuji-in"], ["狐影手印","fox_shadow_puppet"],
+    ["打响指","finger_snap"], ["指尖相触","finger_touching"], ["挠头","scratching_head"], ["子鼠印","rat_seal"],
+    ["丑牛印","ox_seal"], ["寅虎印","tiger_seal"], ["卯兔印","hare_seal"], ["辰龙印","dragon_seal"],
+    ["巳蛇印","snake_seal"], ["午马印","horse_seal"], ["未羊印","ram_seal"], ["申猴印","monkey_seal"],
+    ["酉鸡印","bird_seal"], ["戌狗印","dog_seal"], ["亥猪印","boar_seal"], ["流动结印","weaving_hand_seals"],
+    ["高速结印","rapid_hand_seals"], ["单手结印","one_hand_seal"], ["封印术印","fuuinjutsu_seal"],
   ]],
   // 🎁 拿出：2026-10-20 用户拍板精简到 8 个高频道具（其余不再占面板，交给弹幕/T2 自动生成）
   //    动作库里的 32 个道具动作仍然在，弹幕说“拿出乌龟”照样能被 T0/T2 触发，只是手点面板不再铺满
@@ -1737,6 +2128,10 @@ function renderCmdGrid(){
       h.classList.add("rndh");
       const rb = document.createElement("button");
       rb.id = "rndBtn"; rb.type = "button";
+      // 2026-10-29 修(用户反馈"按钮像隐藏了"): 原来这里不给文字, 全靠 RND.sync() 填;
+      // 而 sync() 在 grid.appendChild(g) 之前就调用 → $("rndBtn") 还查不到 → 空白小方块。
+      rb.textContent = "🎲 随机表演";
+      rb.title = "从本组按权重随机挑一条执行（先连线）";
       const se = document.createElement("select"); se.id = "rndEvery"; se.title = "间隔";
       for (const s of [6, 8, 10, 15, 20, 30, 45, 60]){
         const o = document.createElement("option"); o.value = String(s); o.textContent = s + "秒"; se.appendChild(o);
@@ -1816,6 +2211,7 @@ function renderCmdGrid(){
   const tc = document.createElement("div"); tc.className = "chips"; tc.id = "topChips"; tg.appendChild(tc);
   grid.appendChild(tg);
   try { window.__renderTop && window.__renderTop(); } catch (e) {}   // 重绘后回填 Top10
+  try { RND.sync(); } catch (e) {}                                   // 元素此时已在 DOM, 回填随机表演状态
 }
 renderCmdGrid();
 cmdSyncEditUI();
@@ -1835,7 +2231,14 @@ cmdSyncEditUI();
     if (del){ cmdRemove(del.dataset.group, del.dataset.cmd); renderCmdGrid(); toast("已隐藏：" + del.dataset.cmd); return; }
     if (CMD_EDIT) return;                      // 编辑模式: 点 chip 不发送, 防直播误点
     const b = e.target.closest("button.chip"); if (!b) return;
-    flashChip(b.dataset.cmd, await sendCmdText(b.dataset.cmd));
+    const _cmd = b.dataset.cmd;
+    b.classList.remove("busy", "merged");
+    b.classList.add("sending");                       // ① 立刻反馈"按下了"
+    const _r = await sendCmdText(_cmd);
+    b.classList.remove("sending");
+    if (_r === "sent") markChipBusy(b);               // ② 已发出 → 等它演
+    else if (_r === "deferred") flashChip(_cmd, _r);  // 被合并成"最新优先"
+
   });
   // 拖拽排序(编辑模式)
   // 编辑模式双击 chip: 只改显示名(发送内容不变)
@@ -1922,11 +2325,21 @@ async function refreshLibChips(){
   }catch(e){ box.textContent = "加载失败: " + (e.message||e); }
 }
 $("btnCmds").addEventListener("click", ()=>{
+  cmdsShowTab("act");
   const p = $("cmds"); p.classList.toggle("open");
   if (p.classList.contains("open")){ $("songs").classList.remove("open"); $("vpanel").classList.remove("open"); }
   // 全库组已改懒加载: 首次点击「📚 全库动作」标题才拉取
 });
 $("btnCmdsX").addEventListener("click", ()=>$("cmds").classList.remove("open"));
+/* ⏹ 中断当前动作(2026-10-28 用户点单): 清掉排队 + 停话; 已在 Vidu 播的动作撤不回 */
+$("btnActStop") && $("btnActStop").addEventListener("click", async ()=>{
+  const b = $("btnActStop"); if (b) b.disabled = true;
+  try{
+    const r = await api("/api/act/interrupt", {method:"POST", body:"{}"});
+    toast("⏹ 已中断动作" + (r && r.cleared ? "（清掉 " + r.cleared + " 条排队）" : ""));
+  }catch(e){ toast("中断失败: " + (e.message||e), true); }
+  finally{ if (b) b.disabled = false; }
+});
 // 便于自测/截图: ?cmds=1 直接开面板, &edit=1 顺带进编辑模式(2026-10-20)
 try{
   const _q = new URLSearchParams(location.search);
@@ -2166,7 +2579,8 @@ async function loadVoices(){
         pv.disabled = true; pv.textContent = "合成中…";
         try{
           const r = await fetch("/api/tts/preview", {method:"POST", headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({voice: v.name, text: "你好呀，我是小雅，切换成这个声音说话，就是这样的感觉。"})});
+            body: JSON.stringify({voice: v.name,
+              text: ($("s_prevtxt") && $("s_prevtxt").value.trim()) || "你好呀，这是我的声音。"})});
           if (!r.ok) throw new Error(r.status + " " + r.statusText);
           const blob = await r.blob();
           if (vpAudio) vpAudio.pause();
@@ -2418,6 +2832,128 @@ $("btnActAdd").addEventListener("click", async ()=>{
 });
 
 /* ───────── 设置 ───────── */
+/* 🎭 人设库(2026-10-29): 列表 / 切换。人设文件在 personas/<id>.json, 可并行建好几套 */
+/* ⭐ 专属会员(2026-11-01): 名单维护 + 进场欢迎 */
+let PATRONS = [];
+
+async function loadPatrons(){
+  const box = $("ptList"); if (!box) return;
+  try{
+    const d = await api("/api/patrons");
+    PATRONS = d.items || [];
+    box.replaceChildren();
+    if (!PATRONS.length){
+      const s0 = document.createElement("span");
+      s0.style.cssText = "color:var(--dim);font-size:12px";
+      s0.textContent = "还没有会员 —— 上面填昵称点「＋ 添加」。";
+      box.appendChild(s0); return;
+    }
+    for (const it of PATRONS){
+      const c = document.createElement("span");
+      c.className = "chip";
+      c.style.cssText = "display:inline-flex;align-items:center;gap:4px;font-size:12px";
+      c.textContent = "⭐ " + it.nick + (it.alias ? "（" + it.alias + "）" : "");
+      const x = document.createElement("button");
+      x.className = "chipdel"; x.type = "button"; x.textContent = "×"; x.title = "从名单移除";
+      x.addEventListener("click", (ev)=>{
+        ev.stopPropagation();
+        PATRONS = PATRONS.filter(v => v.nick !== it.nick);
+        savePatrons();
+      });
+      c.appendChild(x);
+      box.appendChild(c);
+    }
+  }catch(e){ box.textContent = "名单加载失败: " + (e.message || e); }
+}
+
+async function savePatrons(){
+  try{
+    const r = await api("/api/patrons/save", {method:"POST", body: JSON.stringify({items: PATRONS})});
+    toast(`会员名单已保存（${r.count} 人）`);
+    await loadPatrons();
+  }catch(e){ toast("保存失败: " + (e.message || e), true); }
+}
+
+$("btnPtAdd") && $("btnPtAdd").addEventListener("click", async ()=>{
+  const nick = ($("ptNick").value || "").trim();
+  const alias = ($("ptAlias").value || "").trim();
+  const note = ($("ptNote").value || "").trim();
+  if (!nick) return toast("先填昵称", true);
+  if (PATRONS.some(x => x.nick === nick)) return toast("这个昵称已在名单里", true);
+  PATRONS.push({nick, alias, note});
+  $("ptNick").value = ""; $("ptAlias").value = ""; $("ptNote").value = "";
+  await savePatrons();
+});
+
+$("btnPtTest") && $("btnPtTest").addEventListener("click", async ()=>{
+  const nick = ($("ptNick").value || "").trim() || (PATRONS[0] && PATRONS[0].nick) || "";
+  if (!nick) return toast("先填或选一个昵称", true);
+  try{ const r = await api("/api/patron/welcome", {method:"POST", body: JSON.stringify({nick})});
+       toast("欢迎词: " + (r.line || "(已跳过)")); }
+  catch(e){ toast("测试失败: " + (e.message || e), true); }
+});
+
+async function loadPersonas(){
+  const sel = $("s_persona"); if (!sel) return;
+  try{
+    const d = await api("/api/personas");
+    const items = d.items || [];
+    sel.innerHTML = items.length
+      ? items.map(p => `<option value="${p.id}" ${p.id === d.active ? "selected" : ""}>${p.name}${p.tagline ? " · " + p.tagline : ""}</option>`).join("")
+      : '<option value="">（personas/ 里还没有人设）</option>';
+    const cur = items.find(p => p.id === d.active);
+    const hint = $("personaHint");
+    if (hint) hint.textContent = cur
+      ? `当前：${cur.name}（${cur.chars} 字）· 目录 ${d.dir}`
+      : `还没选人设 · 目录 ${d.dir || "personas/"}`;
+    // 2026-10-29 修: 「人设 system」文本框原来一直显示 config.llm.system_prompt(旧全局字段),
+    // 于是选了小汐、框里却还是小雅的文字 → 看着像没切成功。这里用当前人设的 prompt 覆盖它。
+    const ta = $("s_llm_sys"), sh = $("llmSysHint");
+    if (cur && d.prompt){
+      if (ta && document.activeElement !== ta) ta.value = d.prompt;
+      if (ta) ta.dataset.ro = "1";        // 人设激活 → 框只读(要改请用上面的💾按钮)
+      const pv = $("s_prevtxt");          // 试听文案也别写死人设名
+      if (pv && pv.dataset.auto === "1") pv.value = `你好呀，我是${cur.name}，切换成这个声音说话，就是这样的感觉。`;
+      if (sh) sh.textContent = `（= 当前人设「${cur.name}」· 改完点上面「💾 保存到当前人设」）`;
+    }else if (sh){
+      if (ta) delete ta.dataset.ro;
+      sh.textContent = cur
+        ? `（当前人设：${cur.name} · 这行文字是旧的全局备用字段，重启桥后这里会显示人设内容）`
+        : "（未选人设 → 用这个全局字段）";
+    }
+  }catch(e){ toast("人设列表加载失败: " + (e.message || e), true); }
+}
+
+$("btnPersonaReload") && $("btnPersonaReload").addEventListener("click", ()=>loadPersonas());
+$("btnPersonaApply") && $("btnPersonaApply").addEventListener("click", async ()=>{
+  const sel = $("s_persona"); if (!sel || !sel.value) return;
+  try{
+    const r = await api("/api/personas/select", {method:"POST", body: JSON.stringify({id: sel.value})});
+    toast(`已切到「${r.name}」（${r.chars} 字）· 下一条回复生效`);
+    await loadPersonas();
+  }catch(e){ toast("切换失败: " + (e.message || e), true); }
+});
+
+$("btnPersonaSave") && $("btnPersonaSave").addEventListener("click", async ()=>{
+  const sel = $("s_persona"), ta = $("s_llm_sys");
+  const pid = sel && sel.value;
+  const txt = ta ? ta.value.trim() : "";
+  if (!pid){ toast("先选一个人设", true); return; }
+  if (!txt){ toast("文本框是空的，没东西可存", true); return; }
+  try{
+    const d = await api("/api/personas");
+    const cur = (d.items || []).find(p => p.id === pid) || {};
+    const r = await api("/api/personas/save", {method:"POST", body: JSON.stringify({
+      id: pid, name: cur.name || pid, tagline: cur.tagline || "",
+      voice: cur.voice || "", avatar_note: cur.avatar_note || "", system_prompt: txt,
+    })});
+    toast(`已保存到「${r.persona.name}」（${r.persona.chars} 字）· 下一条回复生效`);
+    await loadPersonas();
+  }catch(e){ toast("保存失败: " + (e.message || e), true); }
+});
+
+$("s_prevtxt") && $("s_prevtxt").addEventListener("input", (e)=>{ delete e.target.dataset.auto; });
+
 async function loadSettings(){
   try{
     const s = await api("/api/settings");
@@ -2469,6 +3005,8 @@ async function loadSettings(){
     $("s_trtc_id").value = (s.rtc||{}).trtc?.sdk_app_id || "";
     $("s_trtc_key").placeholder = (s.rtc||{}).trtc?.secret_key_set ? "已配置（要改才填）" : "未配置";
   }catch(e){ toast("读取设置失败: " + (e.message||e), true); }
+  loadPersonas();
+  loadPatrons();
 }
 $("btnSave").addEventListener("click", async ()=>{
   const patch = {
@@ -2494,7 +3032,10 @@ $("btnSave").addEventListener("click", async ()=>{
           key_file: $("s_llm_keyfile").value.trim(),
           temperature: Number($("s_llm_temp").value)||0.7,
           max_tokens: Number($("s_llm_maxtok").value)||300,
-          system_prompt: $("s_llm_sys").value},
+          /* 2026-10-30: 选了人设时不要把文本框内容写回 llm.system_prompt ——
+             框里显示的是人设内容, 写进去会造成"人设文本 / 全局字段"两处漂移。
+             改人设请用「💾 保存到当前人设」。 */
+          ...($("s_llm_sys").dataset.ro === "1" ? {} : {system_prompt: $("s_llm_sys").value})},
     tts: {chunk_ms: Number($("s_chunk").value)||100},
     session: {greeting: $("s_greeting").value, idle_timeout_seconds: Number($("s_idle").value)||300,
               max_duration_seconds: Number($("s_maxdur").value)||1800,
@@ -2557,6 +3098,7 @@ $("rightPanel").appendChild($("songs"));
 $("rightPanel").appendChild($("cmds"));
 $("rightPanel").appendChild($("vpanel"));
 $("rightPanel").appendChild($("refs"));
+$("rightPanel").appendChild($("choreo"));
 
 
 /* ───────── 视频区 / 右栏：可拖动调宽（2026-10-20 用户要求） ─────────
@@ -2757,6 +3299,376 @@ document.addEventListener("keydown", e=>{
 });
 $("btnGo").addEventListener("click", start);
 
+const kb = { state: null, timer: null };
+try { document.getElementById("rightPanel").appendChild(document.getElementById("koubo")); } catch(e) {}
+
+function kbEsc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function kbLoad(force){
+  if (!force && !$("koubo").classList.contains("open")) { kbRenderCmds(); return; }
+  try { kb.state = await api("/api/koubo/state"); } catch(e){ return; }
+  if (!$("kbText").matches(":focus")) $("kbText").value = kb.state.text || "";
+  if (!$("kbMax").matches(":focus")) $("kbMax").value = kb.state.max_chars || 60;
+  kbRender();
+  kbRenderCmds();
+}
+
+function kbRender(){
+  const st = kb.state; if (!st) return;
+  const segs = st.segments || [];
+  const tj = st.tts_job || {};
+  $("kbStatus").textContent = `${segs.length} 段` + (st.playing ? ` · 连播中 ${st.play_idx || ""}` : "") +
+    (tj.running ? ` · 合成中 ${tj.done}/${tj.total}${tj.idx ? " (" + tj.idx + ")" : ""}` : "");
+  const tb = $("kbTtsAll"); if (tb) tb.disabled = !!tj.running;
+  const list = $("kbList");
+  if (!segs.length){ list.innerHTML = '<div style="color:var(--dim);padding:12px">粘贴长文后点「切分」。</div>'; return; }
+  list.innerHTML = segs.map((s, i) => {
+    const takes = s.takes || [];
+    const opts = takes.map((t, k) => `<option value="${k}" ${s.selected === k ? "selected" : ""}>v${k + 1} · ${t.dur}s</option>`).join("");
+    const sel = takes.length ? `<select class="kbTake" data-id="${s.id}">${opts}</select>` : '<span style="color:var(--dim);font-size:12px">未合成</span>';
+    return `<div class="kbseg ${st.play_idx === s.id ? "playing" : ""}" data-id="${s.id}">
+      <div class="kbhead"><b>${s.id}</b><span>${(s.text || "").length} 字</span>${s.status ? " · " + kbEsc(s.status) : ""}</div>
+      <textarea class="kbText" data-id="${s.id}">${kbEsc(s.text)}</textarea>
+      <div class="kbrow">${sel}
+        <button data-act="tts" data-id="${s.id}">${takes.length ? "再合成" : "合成"}</button>
+        <button data-act="save" data-id="${s.id}">保存文本</button>
+        <button data-act="action" data-id="${s.id}">生成动作</button>
+        <button data-act="play" data-id="${s.id}">播放</button>
+        <button data-act="audition" data-id="${s.id}">试听</button>
+      </div>
+      ${s.action ? `<div class="kbact">🎬 ${kbEsc(s.action)}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+/* 2026-10-29 口播动作默认折叠(用户要求): 它是一长串口播稿动作描述, 展开会盖住
+   真正的快捷指令分组。状态记 localStorage, 下次打开保持。 */
+const KB_CMD_OPEN_KEY = "s2s.stage.kbCmdOpen";
+let KB_CMD_OPEN = (()=>{ try{ return localStorage.getItem(KB_CMD_OPEN_KEY) === "1"; }catch(e){ return false; } })();
+function kbCmdApplyOpen(count){
+  const box = $("kbCmdChips"), ar = $("kbCmdArrow"), hint = $("kbCmdHint");
+  if (box) box.style.display = KB_CMD_OPEN ? "flex" : "none";
+  if (ar) ar.textContent = KB_CMD_OPEN ? "▾" : "▸";
+  if (hint) hint.textContent = KB_CMD_OPEN ? "(点标题收起)" : (count ? `(${count} 条 · 点标题展开)` : "(点标题展开)");
+}
+
+function kbRenderCmds(){
+  const st = kb.state; const wrap = $("kbCmdWrap"); const box = $("kbCmdChips");
+  const items = ((st && st.segments) || []).filter(s => s.action);
+  wrap.style.display = items.length ? "" : "none";
+  kbCmdApplyOpen(items.length);
+  box.innerHTML = items.map(s => `<button class="chip" data-cmd="${kbEsc(s.action)}" title="${kbEsc(s.text)}">${s.id} ${kbEsc(s.action.slice(0, 18))}</button>`).join("");
+}
+
+async function kbSplit(){
+  const text = $("kbText").value;
+  const max = parseInt($("kbMax").value || "60", 10);
+  try { const r = await api("/api/koubo/split", {method:"POST", body: JSON.stringify({text, max_chars: max})});
+        toast("已切分 " + r.count + " 段"); await kbLoad(true); }
+  catch(e){ toast("切分失败: " + e.message, true); }
+}
+
+async function kbTts(id){
+  toast("合成中…");
+  try { await api("/api/koubo/tts", {method:"POST", body: JSON.stringify({id})}); await kbLoad(true); toast("合成完成"); }
+  catch(e){ toast("合成失败: " + e.message, true); }
+}
+
+async function kbSave(id){
+  const ta = document.querySelector(`.kbText[data-id="${id}"]`);
+  try { await api("/api/koubo/seg", {method:"POST", body: JSON.stringify({id, text: ta.value})}); await kbLoad(true); toast("已保存"); }
+  catch(e){ toast("保存失败: " + e.message, true); }
+}
+
+async function kbAction(id){
+  try { await api("/api/koubo/action", {method:"POST", body: JSON.stringify({id})}); await kbLoad(true); }
+  catch(e){ toast("动作生成失败: " + e.message, true); }
+}
+
+async function kbAudition(id){
+  const s = (kb.state.segments || []).find(x => x.id === id);
+  if (!s || !s.takes || !s.takes.length) return toast("先合成", true);
+  const k = s.selected == null ? 0 : s.selected;
+  const a = new Audio("/api/koubo/audio/" + encodeURIComponent(s.takes[k].file));
+  a.play();
+}
+
+async function kbSelect(id, k){
+  try { await api("/api/koubo/select", {method:"POST", body: JSON.stringify({id, take: parseInt(k, 10)})}); await kbLoad(true); }
+  catch(e){ toast("切换失败: " + e.message, true); }
+}
+
+async function kbPlay(id){
+  try { await api("/api/koubo/play", {method:"POST", body: JSON.stringify({id})}); }
+  catch(e){ toast("播放失败: " + e.message, true); }
+}
+
+async function kbPlayAll(){
+  const gap = parseFloat($("kbGap").value || "0");
+  try { await api("/api/koubo/play_all", {method:"POST", body: JSON.stringify({gap})}); toast("开始连播"); kbLoad(true); }
+  catch(e){ toast("连播失败: " + e.message, true); }
+}
+
+async function kbStop(){
+  try { await api("/api/koubo/stop", {method:"POST"}); toast("已停止"); } catch(e){}
+}
+
+$("btnKoubo").addEventListener("click", ()=>{
+  const p = $("koubo"); p.classList.toggle("open");
+  $("cmds").classList.remove("open"); $("songs").classList.remove("open"); $("refs").classList.remove("open"); $("vpanel").classList.remove("open");
+  if (p.classList.contains("open")) kbLoad(true);
+});
+$("btnKouboX").addEventListener("click", ()=>$("koubo").classList.remove("open"));
+["btnCmds","btnRefs","btnSongs","voicePill"].forEach(id=>{ const el=$(id); if(el) el.addEventListener("click", ()=>$("koubo").classList.remove("open")); });
+$("kbSplit").addEventListener("click", kbSplit);
+$("kbTtsAll").addEventListener("click", async ()=>{
+  try { const r = await api("/api/koubo/tts_all", {method:"POST", body: JSON.stringify({only_missing:true})});
+        toast(r.total ? `开始合成 ${r.total} 段` : "没有需要合成的段"); await kbLoad(true); }
+  catch(e){ toast("批量合成失败: " + e.message, true); }
+});
+$("kbPlayAll").addEventListener("click", kbPlayAll);
+$("kbStop").addEventListener("click", kbStop);
+$("kbActionsAll").addEventListener("click", async ()=>{
+  try { const r = await api("/api/koubo/actions_all", {method:"POST"}); toast("动作生成完成" + (r.errors && r.errors.length ? "（部分失败）" : "")); await kbLoad(true); }
+  catch(e){ toast("批量失败: " + e.message, true); }
+});
+$("kbList").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  if (act === "tts") kbTts(id);
+  else if (act === "save") kbSave(id);
+  else if (act === "action") kbAction(id);
+  else if (act === "play") kbPlay(id);
+  else if (act === "audition") kbAudition(id);
+});
+$("kbList").addEventListener("change", e=>{
+  const sel = e.target.closest("select.kbTake"); if (!sel) return;
+  kbSelect(sel.dataset.id, sel.value);
+});
+const _kbStopBtn = $("btnCmdStop"); _kbStopBtn && _kbStopBtn.addEventListener("click", async ()=>{ try{ await api("/api/cmd/stop",{method:"POST"}); toast("已停止动作并清空队列"); }catch(e){ toast("失败: "+e.message,true); } });
+$("btnCmdClear").addEventListener("click", async ()=>{ try{ const r=await api("/api/cmd/clear",{method:"POST"}); toast("已清空 "+r.cleared+" 条待发动作"); }catch(e){ toast("失败: "+e.message,true); } });
+$("kbCmdHead") && $("kbCmdHead").addEventListener("click", ()=>{
+  KB_CMD_OPEN = !KB_CMD_OPEN;
+  try{ localStorage.setItem(KB_CMD_OPEN_KEY, KB_CMD_OPEN ? "1" : "0"); }catch(e){}
+  kbCmdApplyOpen(((kb.state && kb.state.segments) || []).filter(s => s.action).length);
+});
+$("kbCmdChips").addEventListener("click", async e=>{
+  const b = e.target.closest("button.chip"); if (!b) return;
+  b.classList.remove("busy", "merged");
+  b.classList.add("sending");
+  const r = await sendCmdText(b.dataset.cmd);
+  b.classList.remove("sending");
+  if (r === "sent") markChipBusy(b);
+  else if (r === "deferred"){ b.classList.add("merged"); setTimeout(()=>b.classList.remove("merged"), 900); }
+});
+
+kb.timer = setInterval(()=>{ if ($("koubo").classList.contains("open") || (kb.state && kb.state.playing)) kbLoad(); }, 2000);
+kbLoad(true);
+
+
+/* ───────── 🎬 固定编排(2026-11-01): 多组动作随机轮播, 走动作通道不影响放歌 ───────── */
+let CH = { groups: [], step_gap_s: 2, group_gap_s: 15, state: {} };
+
+function chEsc(x){ return String(x == null ? "" : x).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function loadChoreo(){
+  try{
+    const d = await api("/api/choreo");
+    CH = Object.assign(CH, d);
+    if (document.activeElement !== $("chStepGap"))  $("chStepGap").value  = d.step_gap_s ?? 2;
+    if (document.activeElement !== $("chGroupGap")) $("chGroupGap").value = d.group_gap_s ?? 15;
+    if ($("chOrder") && document.activeElement !== $("chOrder"))
+      $("chOrder").value = (d.step_order === "order") ? "order" : "random";
+    const st = d.state || {};
+    $("chState").textContent = st.running
+      ? `运行中 · 「${st.group || "-"}」第 ${st.step || 0} 步 · 已跑 ${st.runs || 0} 组`
+      : `未运行 · ${(d.groups || []).length} 组 / ${(d.groups || []).reduce((n,g)=>n+((g.steps||[]).length),0)} 步`;
+    renderChoreo();
+  }catch(e){ $("chState").textContent = "加载失败: " + (e.message || e); }
+}
+
+function renderChoreo(){
+  chPickSources();
+  chPickTargets();
+  chPickRender();
+  const box = $("chGroups"); if (!box) return;
+  box.replaceChildren();
+  const groups = CH.groups || [];
+  if (!groups.length){
+    const d = document.createElement("div");
+    d.style.cssText = "color:var(--dim);font-size:12px";
+    d.textContent = "还没有动作组 —— 下面填组名 + 每行一条动作，点「＋ 添加组」。";
+    box.appendChild(d); return;
+  }
+  for (const g of groups){
+    const row = document.createElement("div");
+    row.style.cssText = "border:1px solid var(--line);border-radius:10px;padding:8px;background:rgba(10,14,24,.5)";
+    const head = document.createElement("div");
+    head.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:4px";
+    const nm = document.createElement("b"); nm.style.cssText = "color:#DFBE96;font-size:13px";
+    nm.textContent = g.name || g.id;
+    const cnt = document.createElement("span"); cnt.style.cssText = "color:var(--dim);font-size:11px";
+    cnt.textContent = `${(g.steps || []).length} 步`;
+    const sp = document.createElement("span"); sp.style.flex = "1";
+    const bRun = document.createElement("button"); bRun.className = "ghost"; bRun.textContent = "▶ 试跑"; bRun.style.fontSize = "11px";
+    const bDel = document.createElement("button"); bDel.className = "ghost"; bDel.textContent = "🗑"; bDel.style.fontSize = "11px";
+    bRun.addEventListener("click", async ()=>{
+      try{ await api("/api/choreo/run_once", {method:"POST", body: JSON.stringify({group_id: g.id})}); toast(`试跑「${g.name||g.id}」`); }
+      catch(e){ toast("试跑失败: " + (e.message||e), true); }
+      setTimeout(loadChoreo, 1500);
+    });
+    bDel.addEventListener("click", ()=>{
+      if (!confirm(`删除动作组「${g.name || g.id}」?`)) return;
+      CH.groups = CH.groups.filter(x => x.id !== g.id);
+      renderChoreo(); saveChoreo(); toast("已删除并保存");
+    });
+    head.append(nm, cnt, sp, bRun, bDel);
+    const steps = document.createElement("div");
+    steps.className = "chips";
+    for (const st of (g.steps || [])){
+      const c = document.createElement("span");
+      c.className = "chip"; c.style.cursor = "default"; c.style.fontSize = "11px";
+      c.textContent = st.cmd;
+      steps.appendChild(c);
+    }
+    row.append(head, steps);
+    box.appendChild(row);
+  }
+}
+
+/* 🎯 从现有动作挑选(2026-11-01 用户要求): 不用手打命令, 直接点面板里已有的动作 */
+const CH_PICK = { src: "", dirty: false };
+
+function chPickSources(){
+  // 面板里的分组(CMD_GROUPS) —— 复用快捷指令的数据, 不需要另建一套
+  const box = $("chPickSrc"); if (!box) return;
+  const cur = box.value || CH_PICK.src;
+  box.innerHTML = CMD_GROUPS.map(g => `<option value="${chEsc(g[0])}">${chEsc(g[0])}</option>`).join("");
+  // 默认优先拟人化
+  const prefer = CMD_GROUPS.find(g => String(g[0]).indexOf("拟人化") >= 0);
+  box.value = cur || (prefer ? prefer[0] : (CMD_GROUPS[0] || [""])[0]);
+  CH_PICK.src = box.value;
+}
+
+function chPickTargets(){
+  const box = $("chPickDst"); if (!box) return;
+  const cur = box.value;
+  const opts = ['<option value="__new__">新组（草稿）</option>']
+    .concat((CH.groups || []).map(g => `<option value="${chEsc(g.id)}">${chEsc(g.name || g.id)}</option>`));
+  box.innerHTML = opts.join("");
+  if (cur && [...box.options].some(o => o.value === cur)) box.value = cur;
+}
+
+function chPickRender(){
+  const box = $("chPickChips"); if (!box) return;
+  const title = ($("chPickSrc") || {}).value || CH_PICK.src;
+  const items = (typeof cmdDefaults === "function") ? cmdDefaults(title) : [];
+  box.replaceChildren();
+  if (!items.length){
+    const t = document.createElement("span");
+    t.style.cssText = "color:var(--dim);font-size:12px";
+    t.textContent = "这一组没有可选动作";
+    box.appendChild(t); return;
+  }
+  for (const it of items){
+    const b = document.createElement("button");
+    b.className = "chip"; b.type = "button";
+    b.style.fontSize = "11px";
+    b.textContent = it.label || it.cmd;
+    b.title = it.cmd;
+    b.addEventListener("click", ()=> chPickAdd(it.cmd));
+    box.appendChild(b);
+  }
+}
+
+function chPickAdd(cmd){
+  if (!cmd) return;
+  const dst = ($("chPickDst") || {}).value || "__new__";
+  if (dst === "__new__"){
+    const ta = $("chSteps"); if (!ta) return;
+    ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + "\n" : "") + cmd;
+    ta.scrollTop = ta.scrollHeight;
+    toast("已加入草稿：" + cmd);
+  }else{
+    const g = (CH.groups || []).find(x => String(x.id) === String(dst));
+    if (!g) return;
+    g.steps = (g.steps || []).concat([{cmd, gap_s: null}]);
+    renderChoreo();
+    saveChoreo();
+    toast(`已加入并保存「${g.name || g.id}」：${cmd}`);
+  }
+}
+
+async function saveChoreo(){
+  try{
+    const payload = {
+      groups: CH.groups || [],
+      step_gap_s: Number($("chStepGap").value) || 2,
+      group_gap_s: Number($("chGroupGap").value) || 15,
+      step_order: ($("chOrder") && $("chOrder").value) || "random",
+    };
+    const r = await api("/api/choreo/save", {method:"POST", body: JSON.stringify(payload)});
+    toast(`已保存 ${r.groups} 组 / ${r.steps} 步`);
+    await loadChoreo();
+  }catch(e){ toast("保存失败: " + (e.message||e), true); }
+}
+
+/* 🎬 编排现在是快捷指令里的一个子页签(2026-11-01 用户要求并入) */
+let CMDS_TAB = "act";
+
+function cmdsShowTab(tab){
+  CMDS_TAB = (tab === "choreo") ? "choreo" : "act";
+  const isCh = CMDS_TAB === "choreo";
+  ["autoRow","cmdEditRow","cmdGrid","kbCmdWrap"].forEach(id => { const e = $(id); if (e) e.style.display = isCh ? "none" : ""; });
+  const ch = $("choreo"); if (ch) ch.style.display = isCh ? "block" : "none";
+  if ($("tabCmds")) $("tabCmds").style.opacity = isCh ? ".6" : "1";
+  if ($("tabChoreo")) $("tabChoreo").style.opacity = isCh ? "1" : ".6";
+  if (isCh) loadChoreo();
+}
+
+// 把编排面板真正挪进「快捷指令」面板里(2026-11-01), 不依赖 HTML 中的书写位置
+try{
+  const _cm = $("cmds"), _ch = $("choreo");
+  if (_cm && _ch && _ch.parentElement !== _cm) _cm.appendChild(_ch);
+  cmdsShowTab("act");
+}catch(e){ console.error("[choreo mount]", e); }
+
+$("tabCmds") && $("tabCmds").addEventListener("click", ()=> cmdsShowTab("act"));
+$("tabChoreo") && $("tabChoreo").addEventListener("click", ()=> cmdsShowTab("choreo"));
+$("chX") && $("chX").addEventListener("click", ()=> cmdsShowTab("act"));
+$("chX") && $("chX").addEventListener("click", ()=>{ $("choreo").style.display = "none"; });
+$("chPickSrc") && $("chPickSrc").addEventListener("change", ()=>{ CH_PICK.src = $("chPickSrc").value; chPickRender(); });
+$("chSave") && $("chSave").addEventListener("click", saveChoreo);
+$("chAdd") && $("chAdd").addEventListener("click", async ()=>{
+  const name = ($("chName").value || "").trim();
+  const raw = ($("chSteps").value || "").split("\n").map(x => x.trim()).filter(Boolean);
+  if (!name) return toast("先填组名", true);
+  if (!raw.length) return toast("先填步骤（每行一条动作）", true);
+  CH.groups = (CH.groups || []).concat([{
+    id: "g" + Date.now().toString(36),
+    name,
+    steps: raw.map(c => ({cmd: c, gap_s: null})),
+  }]);
+  $("chName").value = ""; $("chSteps").value = "";
+  renderChoreo();
+  await saveChoreo();                       // 2026-11-01: 添加后立刻落盘, 不用再点保存
+  toast("已添加并保存：" + name);
+});
+$("chStart") && $("chStart").addEventListener("click", async ()=>{
+  try{
+       if (typeof RND !== "undefined" && RND && RND.on){ RND.stop(); toast("已先停掉 🎲 随机表演（避免两边抢动作）"); }
+       await saveChoreo(); const r = await api("/api/choreo/start", {method:"POST", body:"{}"});
+       toast(`🎬 编排开始（${r.groups} 组 · 组内${(($("chOrder")||{}).value === "order") ? "按顺序" : "随机"}）`);
+       setTimeout(loadChoreo, 300); }
+  catch(e){ toast("启动失败: " + (e.message||e), true); }
+});
+$("chStop") && $("chStop").addEventListener("click", async ()=>{
+  try{ const r = await api("/api/choreo/stop", {method:"POST", body:"{}"});
+       toast(`🎬 编排已停（本场跑了 ${r.runs} 组）`); setTimeout(loadChoreo, 200); }
+  catch(e){ toast("停止失败: " + (e.message||e), true); }
+});
+setInterval(()=>{ if ($("choreo") && $("choreo").style.display !== "none") loadChoreo(); }, 2500);
+
 /* ───────── 启动 ───────── */
 fxApply();                    // 动作特效开关: 按上次状态应用(必须晚于 fxRows 声明 —— 2026-10-17 踩过 TDZ 坑: 页面脚本中断、连线按钮失效)
 loadSettings();
@@ -2765,5 +3677,7 @@ refreshFiles();
 poll();
 state.pollTimer = setInterval(poll, 1200);
 </script>
+
+</div>
 </body>
 </html>

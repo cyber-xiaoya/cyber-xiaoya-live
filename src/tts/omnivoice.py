@@ -3,8 +3,8 @@
 - 引擎地址: **127.0.0.1:9877 优先**(走 WSL2 localhost 转发, 不可用时瞬时被拒);
   其次 config tts.omnivoice_base(WSL2 内网 IP, 默认 http://192.168.1.244:9877 ——
   2026-10-13 实测: WSL2 重启后该 IP 会变黑洞, 拨号挂几十秒); 最后
-  外部语音桥配置(DSH_VOICE_BRIDGE_CFG)里记录的地址; 拨通后把可用值记进 _active_base
-- 音色预设库: 复用 voices 目录约定(与语音桥同源):
+  D:\\speech-to-speech\\bridge-config.json 里记录的地址; 拨通后把可用值记进 _active_base
+- 音色预设库: 复用 D:\\speech-to-speech\\voices 的目录约定(与语音桥同源):
     子文件夹含 design.json                      → omni-design(参数设计音色)
     子文件夹含 ref_audio.* + omnivoice.txt 标记 → omni-clone(克隆参考音频)
     只有 ref_audio.*(qwen3 预设)               → 跳过(本桥不加载 Qwen3)
@@ -17,9 +17,11 @@
 """
 from __future__ import annotations
 
+import collections
+import time
+
 import asyncio
 import json
-import os
 import pathlib
 import threading
 
@@ -85,6 +87,11 @@ class OmniVoiceTTS:
         self._active_base = ""                 # 实际拨通的地址
         self._lock = threading.Lock()          # gradio_client 非线程安全
         self._loop_lock = asyncio.Lock()       # async 侧串行
+        # 2026-10-29 显存看门狗用: 最近若干次合成的耗时(ms) + 重启计数
+        self.recent_ms = collections.deque(maxlen=12)
+        self.restart_count = 0
+        self.last_restart_at = 0.0
+        self.fail_streak = 0          # 连续合成失败次数(看门狗用)
 
     # ---- 地址解析: 配置值 → 127.0.0.1 → 语音桥 bridge-config.json 记录值 ----
 
@@ -97,11 +104,8 @@ class OmniVoiceTTS:
         if self.cfg_base:
             cands.append(self.cfg_base)
         try:
-            # 可选: 若你有另一个语音桥配置(含 omnivoice.base), 用环境变量 DSH_VOICE_BRIDGE_CFG 指过去
-            bc_path = os.environ.get("DSH_VOICE_BRIDGE_CFG", "")
-            if not bc_path:
-                raise FileNotFoundError("未配置 DSH_VOICE_BRIDGE_CFG")
-            bc = json.loads(pathlib.Path(bc_path).read_text(encoding="utf-8"))
+            bc = json.loads(pathlib.Path(r"<语音桥目录>\bridge-config.json")
+                            .read_text(encoding="utf-8"))
             b = str(((bc.get("omnivoice") or {}).get("base")) or "").rstrip("/")
             if b:
                 cands.append(b)
@@ -141,6 +145,25 @@ class OmniVoiceTTS:
 
     def _predict_sync(self, text: str, preset: dict) -> str:
         """阻塞调用 gradio → 返回 wav 本地路径。只在线程池里跑。"""
+        _t0 = time.monotonic()
+        try:
+            out = self._predict_inner(text, preset)
+            self.fail_streak = 0
+            return out
+        except Exception:
+            self.fail_streak = getattr(self, "fail_streak", 0) + 1
+            raise
+        finally:
+            self.recent_ms.append(int((time.monotonic() - _t0) * 1000))
+
+    def slow_recent(self, limit_ms: int, n: int) -> bool:
+        """最近 n 次合成是否都超过 limit_ms(看门狗用)。"""
+        if n <= 0:
+            return False
+        vals = list(self.recent_ms)[-n:]
+        return len(vals) >= n and all(v > limit_ms for v in vals)
+
+    def _predict_inner(self, text: str, preset: dict) -> str:
         params = dict(DEFAULT_PARAMS)
         params.update(preset.get("params") or {})
         with self._lock:
@@ -218,7 +241,7 @@ def sweep_client_cache(max_age_sec: float = 7200) -> int:
 
     为什么需要(2026-10-13): gradio_client 每合成一次就把服务端 wav 下载进本目录, **从不清理**
     (长跑实测 5989 个文件 / 1.0GB)。本桥自己的产物已在 _drop_wav 里逐个删掉, 但
-    **另一个本地语音桥(8765, 可选)与本桥共用同一个 %TEMP%\\gradio**, 它下载的
+    **D:\\speech-to-speech 那个语音桥(8765)与本桥共用同一个 %TEMP%\\gradio**, 它下载的
     文件我们没有机会删 —— 所以按年龄兜底(默认删超过 2 小时的, 不碰在途文件)。
     开销: 一次目录遍历(每 30 分钟由 bridge._tts_cache_gc_loop 触发), 无额外进程。"""
     import tempfile

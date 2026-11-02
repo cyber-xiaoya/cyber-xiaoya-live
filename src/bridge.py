@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 import base64
 import pathlib
 import re
@@ -38,6 +39,7 @@ from pydantic import BaseModel
 from . import config as appconf
 from . import logging_setup
 from . import dm_router
+from . import koubo as _koubo
 from .engine import Engine
 from .tts import audio
 from .vidu import client as vu
@@ -50,7 +52,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 STAGE = ROOT / "stage"
 
 app = FastAPI(title="vidu-dh-s2-component")
+app.include_router(_koubo.router)   # 口播工作台(切分/分段合成/连播)
 engine = Engine()
+_koubo.init(engine)
 # 动作**真正发出**时的回调(2026-10-16): 手动直发登记改由 engine 回调触发, 而不是
 # 在 /api/cmd 里"受理即登记" —— 唱歌窗口内连点会被节流合并, 特效高亮/日志必须反映
 # 真正发给 Vidu 的那一条(否则画面亮 10 次、她只做 3 个)。
@@ -72,16 +76,227 @@ async def _fetch_action_names() -> list[str]:
 dm_router.init(engine, fetch_names=_fetch_action_names,
                conf_get=lambda: (appconf.load().get("danmaku_cmd") or {}))
 
+_credits_state: dict = {"remain": None, "start": None, "spent": 0, "at": 0.0}
+
+
+async def _credits_loop() -> None:
+    """Vidu 积分轮询(2026-11-01): 每 stats.credits_poll_s 秒查一次余额。
+
+    本场消耗 = 开播时余额 - 当前余额; 只在 live 期间记 start。
+    """
+    while True:
+        try:
+            c = (appconf.load().get("stats") or {})
+            interval = max(30, int(c.get("credits_poll_s") or 60))
+            if engine.phase != "live":
+                await asyncio.sleep(5)
+                continue
+            # 开播第一次: 尽快取基线(2s), 之后按 interval
+            await asyncio.sleep(2 if _credits_state.get("start") is None else interval)
+            _configure_vu()
+            try:
+                r = await vu.credits()
+            except Exception as e:                      # noqa: BLE001
+                _credits_state["err"] = str(e)[:120]
+                continue
+            rem = None
+            for x in (r.get("remains") or []):
+                if x.get("credit_remain") is not None:
+                    rem = int(x["credit_remain"]); break
+            if rem is None:
+                continue
+            if _credits_state.get("start") is None:
+                _credits_state["start"] = rem
+            _credits_state.update({"remain": rem, "at": time.time(),
+                                   "spent": max(0, int(_credits_state["start"]) - rem),
+                                   "err": ""})
+        except asyncio.CancelledError:
+            raise
+        except Exception:                                # noqa: BLE001
+            await asyncio.sleep(10)
+
+
 @app.on_event("startup")
 async def _dmcmd_startup():
     await dm_router.start()
     asyncio.create_task(_tts_cache_gc_loop())
+    asyncio.create_task(_tts_health_loop())
+    asyncio.create_task(_credits_loop())          # Vidu 积分轮询(2026-11-01)
+
+
+# ══════════════════════ TTS 显存看门狗(2026-10-29) ══════════════════════
+# 背景: OmniVoice 跑久了显存从 5.2GB 涨到 15.7/16.3GB(反复换音色后尤其明显),
+# 快打满时每次合成都要腾挪显存 → 偶发 9~35s 停顿(听感就是她突然不说话)。
+# 对策: 定期看 ①显存占用 ②最近几次合成耗时, 任一超标 → 重启 WSL 里的 OmniVoice。
+# 只在"她没在说话、没在放歌"时动手, 带冷却, 绝不打断正在说的话。
+
+OMNI_RESTART_PS1 = r"<语音桥目录>\start-omnivoice-wsl.ps1"
+OMNI_WSL_DISTRO = "Ubuntu-22.04"
+
+
+def _health_cfg() -> dict:
+    c = ((appconf.load().get("tts") or {}).get("health") or {})
+    return {
+        "enabled": bool(c.get("enabled", True)),
+        "check_sec": int(c.get("check_sec", 60) or 60),
+        "vram_mb_max": int(c.get("vram_mb_max", 15800) or 15800),
+        "slow_ms": int(c.get("slow_ms", 4000) or 4000),
+        "slow_n": int(c.get("slow_n", 3) or 3),
+        "cooldown_sec": int(c.get("cooldown_sec", 900) or 900),
+    }
+
+
+def _vram_used_mb():
+    """nvidia-smi 读显存(MiB)。读不到返回 None(别因此误判)。
+    2026-10-29: 计划任务里 PATH 可能不含 System32, 加绝对路径兜底并留诊断日志。"""
+    cands = [
+        ["nvidia-smi"],
+        [r"C:\Windows\System32\nvidia-smi.exe"],
+        [r"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe"],
+    ]
+    for exe in cands:
+        try:
+            r = subprocess.run(
+                exe + ["--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=8,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            if r.returncode != 0:
+                print(f"[tts] nvidia-smi({exe[0]}) rc={r.returncode} err={r.stderr[:120]!r}",
+                      flush=True)
+                continue
+            vals = [int(x.strip()) for x in r.stdout.splitlines() if x.strip().isdigit()]
+            if vals:
+                return max(vals)
+            print(f"[tts] nvidia-smi({exe[0]}) 输出异常: {r.stdout[:120]!r}", flush=True)
+        except FileNotFoundError:
+            continue
+        except Exception as e:                          # noqa: BLE001
+            print(f"[tts] nvidia-smi({exe[0]}) 异常: {type(e).__name__}: {e}", flush=True)
+            continue
+    return None
+
+
+def _port_open(host: str, port: int, timeout: float = 1.5) -> bool:
+    import socket as _s
+    try:
+        with _s.create_connection((host, port), timeout=timeout):
+            return True
+    except Exception:                                  # noqa: BLE001
+        return False
+
+
+def _restart_omnivoice_sync() -> bool:
+    """杀 WSL 里的 OmniVoice → 用现成脚本重新拉起 → 等 9877 就绪。阻塞, 放线程跑。"""
+    print("[tts] ♻ 开始重启 OmniVoice(WSL)…", flush=True)
+    try:
+        subprocess.run(["wsl", "-d", OMNI_WSL_DISTRO, "--", "bash", "-c",
+                        "pkill -f demo_flashinfer.py"],
+                       capture_output=True, timeout=25,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except Exception as e:                              # noqa: BLE001
+        print(f"[tts] 杀旧进程失败(继续拉起): {type(e).__name__}: {e}", flush=True)
+    time.sleep(2)
+    try:
+        subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                          "-WindowStyle", "Hidden", "-File", OMNI_RESTART_PS1],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except Exception as e:                              # noqa: BLE001
+        print(f"[tts] 拉起脚本失败: {type(e).__name__}: {e}", flush=True)
+        return False
+    for _ in range(90):                                 # 最多 180s
+        if _port_open("127.0.0.1", 9877):
+            time.sleep(2)
+            return True
+        time.sleep(2)
+    return False
+
+
+async def _tts_health_loop():
+    """见上方说明。状态写 engine.tts_health, 经 /api/live/status 暴露。"""
+    print("[tts] 看门狗已启动(45s 后开始巡检)", flush=True)
+    await asyncio.sleep(45)                              # 启动别急着判
+    while True:
+        cfg = _health_cfg()
+        if not cfg["enabled"]:
+            await asyncio.sleep(cfg["check_sec"])
+            continue
+        try:
+            vram = await asyncio.to_thread(_vram_used_mb)
+            tts = engine.tts
+            slow = tts.slow_recent(cfg["slow_ms"], cfg["slow_n"])
+            recent = list(tts.recent_ms)[-cfg["slow_n"]:]
+            engine.tts_health.update({
+                "vram_mb": vram,
+                "last_slow_ms": (max(recent) if recent else None),
+                "restarts": getattr(tts, "restart_count", 0),
+                "last_restart_at": getattr(tts, "last_restart_at", 0) or None,
+            })
+            fails = getattr(tts, "fail_streak", 0)
+            # 2026-10-29 实测: 显存 15.3GB/16.3GB 时合成仍只有 1.5s → **显存高不等于卡**,
+            # 所以主判据是"连续慢/连续失败", 显存只在逼近上限(默认 15800MB)时兜底。
+            over = vram is not None and vram >= cfg["vram_mb_max"]
+            if over or slow or fails >= 3:
+                print(f"[tts] 巡检 vram={vram}MB slow={slow} fails={fails}", flush=True)
+            elif int(time.time()) % 1800 < cfg["check_sec"]:
+                print(f"[tts] 巡检(常规) vram={vram}MB slow={slow}", flush=True)
+            if not (over or slow or fails >= 3):
+                engine.tts_health["state"] = "ok"
+                engine.tts_health["note"] = ""
+                await asyncio.sleep(cfg["check_sec"])
+                continue
+            since = time.time() - (getattr(tts, "last_restart_at", 0) or 0)
+            if since < cfg["cooldown_sec"]:
+                engine.tts_health["state"] = "throttled"
+                engine.tts_health["note"] = f"需重启但冷却中({int(since)}s/{cfg['cooldown_sec']}s)"
+                await asyncio.sleep(cfg["check_sec"])
+                continue
+            if engine._speaking_now() or engine._song_playing or engine._chat_busy:
+                engine.tts_health["state"] = "deferred"
+                engine.tts_health["note"] = "她正在说/唱, 等空闲再重启"
+                await asyncio.sleep(15)
+                continue
+            why = []
+            if over:
+                why.append(f"显存 {vram}MB >= {cfg['vram_mb_max']}")
+            if slow:
+                why.append(f"最近 {cfg['slow_n']} 次合成都 > {cfg['slow_ms']}ms")
+            if fails >= 3:
+                why.append(f"连续 {fails} 次合成失败")
+            reason = "; ".join(why)
+            print(f"[tts] ⚠ 触发自动重启 OmniVoice: {reason}", flush=True)
+            engine.tts_health["state"] = "restarting"
+            engine.tts_health["note"] = reason
+            ok = await asyncio.to_thread(_restart_omnivoice_sync)
+            tts.restart_count = getattr(tts, "restart_count", 0) + 1
+            tts.last_restart_at = time.time()
+            tts.recent_ms.clear()
+            try:
+                tts._reset_client()
+            except Exception:                            # noqa: BLE001
+                pass
+            engine.tts_health.update({
+                "state": "ok" if ok else "error",
+                "restarts": tts.restart_count,
+                "last_restart_at": tts.last_restart_at,
+                "note": "已重启" if ok else "重启失败",
+            })
+            print(f"[tts] {'✅ OmniVoice 已重启' if ok else '❌ OmniVoice 重启失败'}", flush=True)
+            try:
+                engine.tr_add("sys", (f"♻ TTS 服务已自愈重启（{reason}）" if ok
+                                      else "❌ TTS 服务重启失败，请手动检查"))
+            except Exception:                            # noqa: BLE001
+                pass
+            await asyncio.sleep(60)
+        except Exception as e:                           # noqa: BLE001
+            print(f"[tts] 看门狗异常(忽略): {type(e).__name__}: {e}", flush=True)
+            await asyncio.sleep(cfg["check_sec"])
 
 
 async def _tts_cache_gc_loop():
     """gradio 客户端缓存兜底清理(详见 omnivoice.sweep_client_cache)。
     启动即清一次, 之后每 30 分钟一次。为什么不能只靠合成后的逐个删:
-    `%TEMP%\\gradio` 与 另一个本地语音桥(8765, 可选)**共用同一个目录**,
+    `%TEMP%\\gradio` 与 D:\\speech-to-speech 那个语音桥(8765)**共用同一个目录**,
     它下载的 wav 我们没机会删 → 这里按年龄兜底(>2 小时)。开销: 每 30 分钟一次目录遍历。"""
     from .tts import omnivoice as _ov
     while True:
@@ -154,6 +369,7 @@ class StartBody(BaseModel):
 
 @app.post("/api/live/start")
 async def live_start(body: StartBody | None = None):
+    _credits_state.update({"start": None, "spent": 0, "remain": None})   # 新一场: 积分基线重置
     try:
         return await engine.start((body.model_dump(exclude_none=True) if body else {}))
     except RuntimeError as e:
@@ -170,6 +386,11 @@ async def live_status(since: int = -1):
         st["dm_feed"] = dm_router.cmd_feed()
     except Exception:                                # noqa: BLE001
         st["dm_feed"] = {"last": {}, "recent": []}
+    st = st
+    try:
+        st.setdefault('stats', {})['credits'] = dict(_credits_state)
+    except Exception:
+        pass
     return st
 
 
@@ -216,6 +437,27 @@ async def record_fetch(body: RecordFetchBody | None = None):
 @app.post("/api/interrupt")
 async def interrupt():
     return await engine.interrupt()
+
+
+@app.post("/api/cmd/clear")
+async def cmd_clear():
+    """只清空待发的动作队列（不打断正在说的话）。"""
+    return {"ok": True, "cleared": engine.clear_actions()}
+
+
+@app.post("/api/cmd/stop")
+async def cmd_stop():
+    """停止动作：清空队列 + type7 打断当前播报。"""
+    return await engine.act_interrupt()
+
+
+@app.post("/api/act/interrupt")
+async def act_interrupt():
+    """⏹ 中断当前动作：清空待执行队列 + 停掉正在念的话（已在 Vidu 播的动作撤不回）。"""
+    try:
+        return await engine.act_interrupt()
+    except Exception as e:                          # noqa: BLE001
+        raise err(409, f"中断失败: {type(e).__name__}: {str(e)[:160]}") from e
 
 
 # ───────────────────────── 对话 ─────────────────────────
@@ -336,6 +578,12 @@ def _song_dirs() -> list[pathlib.Path]:
             if d]
 
 
+def _song_files() -> list[pathlib.Path]:
+    """单曲入歌单(2026-10-30): 不想整目录挂载时, 把具体文件列进 tts.song_files。"""
+    raw = ((appconf.load().get("tts") or {}).get("song_files") or [])
+    return [pathlib.Path(x) for x in raw if x]
+
+
 @app.get("/api/tts/files")
 async def tts_files():
     """files_dir + song_dirs 全集; song_dirs 的文件带 lib 标记(只读歌单, 上传/删除仍限 files_dir)。"""
@@ -355,6 +603,12 @@ async def tts_files():
                 items.append({"name": f.name, "size": f.stat().st_size,
                               "mtime": int(f.stat().st_mtime), "lib": sd.name})
                 seen.add(f.name)
+    # 单文件挂载(tts.song_files): 只收点名的, 不牵扯同目录其它文件
+    for sf in _song_files():
+        if sf.is_file() and sf.suffix.lower() in _AUDIO_EXTS and sf.name not in seen:
+            items.append({"name": sf.name, "size": sf.stat().st_size,
+                          "mtime": int(sf.stat().st_mtime), "lib": sf.parent.name})
+            seen.add(sf.name)
     return {"dir": str(d), "files": items}
 
 
@@ -589,6 +843,301 @@ async def settings_post(body: dict):
 async def settings_reload():
     appconf.reload()
     return {"ok": True, "settings": appconf.public()}
+
+
+# ───────────────────────── 专属会员(2026-11-01) ─────────────────────────
+# data/patrons.json: 手动维护的会员名单; 进场时由 reader 转发过来 → 播欢迎词。
+
+class PatronJoinBody(BaseModel):
+    nick: str = ""
+    uid: str = ""
+    note: str = ""
+
+
+class PatronsSaveBody(BaseModel):
+    items: list = []
+
+
+def _patrons_path() -> pathlib.Path:
+    d = pathlib.Path(__file__).resolve().parent.parent / "data"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "patrons.json"
+
+
+def _patrons_read() -> dict:
+    import json as _json
+    try:
+        d = _json.loads(_patrons_path().read_text(encoding="utf-8")) or {}
+    except Exception:                                    # noqa: BLE001
+        d = {}
+    if not isinstance(d.get("items"), list):
+        d["items"] = []
+    return d
+
+
+@app.get("/api/patrons")
+async def patrons_list():
+    d = _patrons_read()
+    return {"ok": True, "items": d["items"], "path": str(_patrons_path()),
+            "state": {"welcomed": len(engine._patron_welcomed), "count": engine._patron_welcomes}}
+
+
+@app.get("/api/patrons/ids")
+async def patrons_ids():
+    """给 reader 用: 只要昵称列表(进场时本地比对, 避免全量转发进场事件)。"""
+    items = _patrons_read()["items"]
+    return {"nicks": [str(x.get("nick") or "").strip() for x in items if x.get("nick")],
+            "uids": [str(x.get("uid") or "").strip() for x in items if x.get("uid")]}
+
+
+@app.post("/api/patrons/save")
+async def patrons_save(body: PatronsSaveBody):
+    items = []
+    for x in (body.items or []):
+        if not isinstance(x, dict):
+            continue
+        nick = str(x.get("nick") or "").strip()
+        if not nick:
+            continue
+        items.append({"nick": nick,
+                      "alias": str(x.get("alias") or "").strip(),
+                      "note": str(x.get("note") or "").strip(),
+                      "since": str(x.get("since") or time.strftime("%Y-%m-%d"))})
+    import json as _json
+    _patrons_path().write_text(_json.dumps({"items": items}, ensure_ascii=False, indent=2),
+                               encoding="utf-8")
+    return {"ok": True, "count": len(items)}
+
+
+@app.post("/api/patron/join")
+async def patron_join(body: PatronJoinBody):
+    """reader 转发: 名单里的会员进场 → 播欢迎词。"""
+    nick = (body.nick or "").strip()
+    if not nick:
+        raise err(400, "nick 为空")
+    items = _patrons_read()["items"]
+    hit = next((x for x in items
+                if str(x.get("nick") or "").strip() == nick
+                or (body.uid and str(x.get("uid") or "").strip() == body.uid)), None)
+    if not hit:
+        return {"ok": True, "skipped": "not_patron"}
+    if engine.phase != "live":
+        return {"ok": True, "skipped": "idle"}
+    r = await engine.welcome_patron(nick, uid=body.uid, note=body.note or hit.get("note") or "")
+    return r
+
+
+@app.post("/api/patron/welcome")
+async def patron_welcome(body: PatronJoinBody):
+    """手动测试: 强制给某个名字播一句欢迎词。"""
+    if engine.phase != "live":
+        raise err(409, "先连线再试")
+    return await engine.welcome_patron((body.nick or "").strip(),
+                                       uid=body.uid, note=body.note)
+
+
+# ───────────────────────── 固定编排(2026-11-01) ─────────────────────────
+# data/choreo.json: 多组动作序列 + 组内间隔 + 组间间隔。桥侧调度(不依赖页面)。
+
+class ChoreoSaveBody(BaseModel):
+    groups: list = []
+    step_gap_s: float = 2.0
+    group_gap_s: float = 15.0
+    step_order: str = "random"     # random=组内随机 / order=按顺序
+
+
+class ChoreoRunBody(BaseModel):
+    group_id: str = ""
+
+
+def _choreo_path() -> pathlib.Path:
+    d = pathlib.Path(__file__).resolve().parent.parent / "data"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "choreo.json"
+
+
+def _choreo_read() -> dict:
+    import json as _json
+    f = _choreo_path()
+    try:
+        d = _json.loads(f.read_text(encoding="utf-8")) or {}
+    except Exception:                                    # noqa: BLE001
+        d = {}
+    d.setdefault("enabled", False)
+    d.setdefault("step_gap_s", 2)
+    d.setdefault("group_gap_s", 15)
+    d.setdefault("groups", [])
+    return d
+
+
+def _choreo_write(d: dict) -> dict:
+    import json as _json
+    _choreo_path().write_text(_json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 引擎按 mtime 热读, 写完把缓存失效
+    engine._choreo_cfg_mtime = -1.0
+    return d
+
+
+@app.get("/api/choreo")
+async def choreo_get():
+    d = _choreo_read()
+    d["state"] = {
+        "running": engine._choreo_enabled,
+        "group": engine._choreo_group,
+        "step": engine._choreo_step,
+        "runs": engine._choreo_runs,
+    }
+    d["path"] = str(_choreo_path())
+    return d
+
+
+@app.post("/api/choreo/save")
+async def choreo_save(body: ChoreoSaveBody):
+    d = _choreo_read()
+    d["groups"] = body.groups or []
+    d["step_gap_s"] = max(0.5, float(body.step_gap_s or 2))
+    d["group_gap_s"] = max(1.0, float(body.group_gap_s or 15))
+    d["step_order"] = "order" if str(body.step_order).lower() == "order" else "random"
+    _choreo_write(d)
+    return {"ok": True, "groups": len(d["groups"]),
+            "steps": sum(len(g.get("steps") or []) for g in d["groups"])}
+
+
+@app.post("/api/choreo/start")
+async def choreo_start():
+    d = _choreo_read()
+    groups = [g for g in (d.get("groups") or []) if (g.get("steps") or [])]
+    if not groups:
+        raise err(400, "编排里还没有动作组，先建一组")
+    if engine.phase != "live":
+        raise err(409, "先连线再开编排")
+    if getattr(engine, "_song_random_on", False):
+        pass
+    engine._choreo_enabled = True
+    engine._choreo_runs = 0
+    engine._choreo_group = ""
+    engine._choreo_step = 0
+    print(f"[choreo] 已启动 · {len(groups)} 组 · 组内 {d.get('step_gap_s')}s / 组间 {d.get('group_gap_s')}s",
+          flush=True)
+    return {"ok": True, "groups": len(groups)}
+
+
+@app.post("/api/choreo/stop")
+async def choreo_stop():
+    engine._choreo_enabled = False
+    print("[choreo] 已停止", flush=True)
+    return {"ok": True, "runs": engine._choreo_runs}
+
+
+@app.post("/api/choreo/run_once")
+async def choreo_run_once(body: ChoreoRunBody):
+    """试跑某一组(不进循环, 方便调参数)。"""
+    d = _choreo_read()
+    g = next((x for x in (d.get("groups") or []) if str(x.get("id")) == body.group_id), None)
+    if not g:
+        raise err(404, f"没有这个动作组: {body.group_id}")
+    if engine.phase != "live":
+        raise err(409, "先连线再试跑")
+    gap = float(d.get("step_gap_s") or 2)
+    try:
+        min_gap = max(0.0, float((appconf.load().get("action") or {}).get("choreo_min_gap_s", 0)))
+    except Exception:                                    # noqa: BLE001
+        min_gap = 0.0
+    n = 0
+    loop = asyncio.get_running_loop()
+    _steps = [x for x in (g.get("steps") or []) if str(x.get("cmd") or "").strip()]
+    _order = str(g.get("order") or d.get("step_order") or "random").lower()
+    if _order == "random" and len(_steps) > 1:
+        import random as _r
+        _steps = _r.sample(_steps, len(_steps))
+    for st in _steps:
+        text = str(st.get("cmd") or "").strip()
+        if not text:
+            continue
+        # 与循环模式一致: 相邻两次发送至少间隔 min_gap, 免得堆在 Vidu 侧
+        if min_gap > 0:
+            _w = getattr(engine, "_act_last", 0.0) + min_gap - loop.time()
+            while _w > 0:
+                await asyncio.sleep(min(0.2, _w))
+                _w = getattr(engine, "_act_last", 0.0) + min_gap - loop.time()
+        try:
+            await engine.cmd(text, source="choreo")
+            n += 1
+            print(f"[choreo] 试跑 {n}/{len(g.get('steps') or [])} → {text}", flush=True)
+        except Exception as e:                           # noqa: BLE001
+            raise err(400, f"第 {n + 1} 条发送失败: {str(e)[:100]}") from e
+        await asyncio.sleep(max(0.3, float(st.get("gap_s") or gap)))
+    return {"ok": True, "sent": n, "group": g.get("name") or g.get("id")}
+
+
+# ───────────────────────── 人设库(2026-10-29) ─────────────────────────
+# 多套人设并存: personas/<id>.json; config.llm.persona 指向当前那套。
+# llm.py 的 system_prompt() 会优先读它 —— 切人设不用改 config 里那一大段 prompt。
+
+class PersonaSelBody(BaseModel):
+    id: str = ""
+
+
+class PersonaSaveBody(BaseModel):
+    id: str = ""
+    name: str = ""
+    tagline: str = ""
+    voice: str = ""
+    avatar_note: str = ""
+    system_prompt: str = ""
+
+
+@app.get("/api/personas")
+async def personas_list():
+    from . import personas as _per
+    conf = appconf.load()
+    cur = _per.active_id(conf)
+    items = [_per.brief(d) for d in _per.load_all()]
+    act = _per.get(cur) if cur else None
+    return {"ok": True, "active": cur, "items": items,
+            "dir": str(_per.DIR),
+            # 当前人设的完整提示词 —— 设置里那个「人设 system」文本框要显示它,
+            # 否则会一直显示旧的全局 llm.system_prompt(表现为"选了小汐还写着小雅")
+            "prompt": (act or {}).get("system_prompt") or "",
+            "prompt_chars": len((act or {}).get("system_prompt") or "")}
+
+
+@app.post("/api/personas/select")
+async def personas_select(body: PersonaSelBody):
+    from . import personas as _per
+    pid = (body.id or "").strip()
+    d = _per.get(pid)
+    if not d:
+        raise err(404, f"人设不存在: {pid}")
+    appconf.patch({"llm": {"persona": pid}})
+    print(f"[persona] 已切换到 {pid}（{d.get('name')}）· {len(d.get('system_prompt') or '')} 字", flush=True)
+    # 提示词换了 → 之前的对话记忆没意义了, 清掉免得串味
+    try:
+        engine.llm.reset_history()
+    except Exception:                            # noqa: BLE001
+        pass
+    return {"ok": True, "active": pid, "name": d.get("name"), "chars": len(d.get("system_prompt") or "")}
+
+
+@app.post("/api/personas/save")
+async def personas_save(body: PersonaSaveBody):
+    from . import personas as _per
+    try:
+        d = _per.save(body.id, body.model_dump())
+    except ValueError as e:
+        raise err(400, str(e)) from e
+    return {"ok": True, "persona": _per.brief(d)}
+
+
+@app.delete("/api/personas/{pid}")
+async def personas_delete(pid: str):
+    from . import personas as _per
+    if _per.active_id(appconf.load()) == pid:
+        raise err(409, "不能删当前正在用的人设，先切到别的")
+    ok = _per.delete(pid)
+    if not ok:
+        raise err(404, f"人设不存在: {pid}")
+    return {"ok": True, "deleted": pid}
 
 
 # ───────────────────────── 动作库 ─────────────────────────
