@@ -310,6 +310,8 @@ class Engine:
         rec_cfg = (appconf.load().get("rtc") or {})
         self.record = {"enabled": bool(rec_cfg.get("managed_recording")), "state": "idle",
                        "live_id": "", "files": [], "error": "", "updated": time.time()}
+        # 本次连接在 conn_init 成功后才挂到 self.sig; 失败路径必须自己关掉(issue #2)
+        sig = None
         try:
             conf = appconf.load()
             vu.configure(conf.get("vidu") or {})
@@ -383,8 +385,16 @@ class Engine:
                             "timestamp": mr.get("token_expire_at", "")}
             else:
                 s = extra["viewer_sign"]
+                rc = conf.get("rtc") or {}
+                # 观看端 AppID 要和签 UserSig/token 用的那个一致:
+                # TRTC 是 trtc.sdk_app_id, ARTC 是 artc.app_id。
+                # (issue #1: 原来一律取 artc.app_id → customer+trtc 下舞台页拿到空串, enterRoom 传 0)
+                if extra["provider"] == "trtc":
+                    viewer_app_id = str((rc.get("trtc") or {}).get("sdk_app_id") or "")
+                else:
+                    viewer_app_id = str((rc.get("artc") or {}).get("app_id") or "")
                 self.rtc = {"source": "customer", "provider": extra["provider"],
-                            "app_id": ((conf.get("rtc") or {}).get("artc") or {}).get("app_id", ""),
+                            "app_id": viewer_app_id,
                             "channel_id": extra["channel_id"], "user_id": extra["viewer_uid"],
                             "token": s["token"], "timestamp": s["timestamp"],
                             "shape": s.get("shape", "authinfo")}
@@ -407,12 +417,17 @@ class Engine:
             self.phase = "idle"
             self.error = f"{type(e).__name__}: {e}"
             self.tr_add("sys", f"启动失败: {self.error}")
-            if self.sig:
+            # conn_init 失败时 self.sig 还没赋值 → 必须把本次局部 sig 也关掉,
+            # 否则引擎已回 idle, WebSocket 与监听任务却还留着(issue #2)
+            closing_sigs = [self.sig] if self.sig else []
+            if sig is not None and sig is not self.sig:
+                closing_sigs.append(sig)
+            for _sig in closing_sigs:
                 try:
-                    await self.sig.close()
+                    await _sig.close()
                 except Exception:
                     pass
-                self.sig = None
+            self.sig = None
             raise
 
     def _ws_stalled(self, sig) -> bool:
