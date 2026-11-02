@@ -1,0 +1,7 @@
+# WSL/Linux 脚本必须是 LF，否则 clone 到 WSL 里会报
+#   /usr/bin/env: 'bash': No such file or directory
+*.sh    text eol=lf
+*.py    text eol=lf
+*.ps1   text eol=crlf
+*.cmd   text eol=crlf
+*.md    text eol=lf
