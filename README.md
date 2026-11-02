@@ -110,29 +110,36 @@ ffmpeg -version
 
 要求：WSL2 + Ubuntu-22.04 + NVIDIA 驱动 + 至少 8GB 可用显存（作者实测稳定占用 ~11GB）。
 
+> 💡 **⚠️ 先说明一个最容易卡住的地方**：`demo_flashinfer.py` **不是 OmniVoice 上游自带的文件**，
+> 它是本项目提供的一层封装（把模型起成 `:9877` 服务 + 套 FlashInfer/CUDA Graph 加速 + 自动清理合成缓存）。
+> 所以 clone 完上游在 `~/omnivoice-wsl/` 里**看不到它是正常的**，需要从本仓库 `tools/omnivoice/` 拷过去。
+> 完整图文步骤 + 报错对照表：**[tools/omnivoice/README.md](tools/omnivoice/README.md)**
+
 ```bash
-# ── 以下全部在 WSL2 的 Ubuntu-22.04 里执行 ──
+# ── 第 1 步：拉上游 + 建环境（以下全部在 WSL2 的 Ubuntu-22.04 里执行）──
 sudo apt update && sudo apt install -y ffmpeg git
 git clone https://github.com/k2-fsa/OmniVoice ~/omnivoice-wsl
 cd ~/omnivoice-wsl
 
-# 建环境（以官方 README 为准，作者用 Python 3.12 + torch cu13x + flashinfer）
-uv venv .venv --python 3.12
+# 建环境（Python 3.12；Blackwell / RTX 50 系必须 cu13 系列，cu129 会报 requires GPUs with sm75）
+uv venv .venv --python 3.12 && source .venv/bin/activate
+uv pip install torch --index-url https://download.pytorch.org/whl/cu130
+uv pip install flashinfer-python flashinfer-jit-cache
 uv pip install -r requirements.txt
 
-# 下载模型 OmniVoice-bf16（HuggingFace 或 ModelScope 均可）
-# 作者把模型放在 Windows 的 E 盘，WSL 里通过 /mnt/e/... 访问，不占 WSL 磁盘
+# ── 第 2 步：把本仓库的服务脚本拷进来（关键！缺的就是这两个文件）──
+# 把 <盘>/<仓库路径> 换成你实际 clone 的位置
+cp /mnt/d/<仓库路径>/tools/omnivoice/{demo_flashinfer.py,start_server.sh} ~/omnivoice-wsl/
+chmod +x ~/omnivoice-wsl/start_server.sh
 
-# 启动服务（FlashInfer + CUDA Graph 加速）
-export CUDA_HOME=~/omnivoice-wsl/.venv/lib/python3.12/site-packages/nvidia/cuda_nvcc
-.venv/bin/python demo_flashinfer.py \
-  --model /mnt/e/llama-models/models/OmniVoice-bf16 \
-  --port 9877 --no-asr --ip 0.0.0.0 \
-  --graph-buckets 5,10,15,20,30
+# ── 第 3 步：启动（脚本会先做 4 项预检：目录 / 启动文件 / venv / 是否已在跑）──
+bash ~/omnivoice-wsl/start_server.sh
+# 有本地模型就指定，跳过自动下载：
+#   bash ~/omnivoice-wsl/start_server.sh /mnt/e/llama-models/models/OmniVoice-bf16
 ```
 
-> ⚠️ `demo_flashinfer.py` 的参数、依赖版本可能随上游变化，**以 OmniVoice 官方 README 为准**；
-> 上面的命令是作者本机实测能跑的那一份，仅作参考。
+> 没指定模型时脚本按这个顺序找：**命令行参数 → 环境变量 `OMNIVOICE_MODEL` → 常见本地路径 → 从 HuggingFace 下载 `k2-fsa/OmniVoice`**。
+> 首次下载约 **10GB**（10~60 分钟，只下一次）；网络慢可先 `export HF_ENDPOINT=https://hf-mirror.com`。
 
 启动后从 Windows 验证：
 
