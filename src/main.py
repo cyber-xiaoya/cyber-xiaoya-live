@@ -28,7 +28,18 @@ def main() -> int:
     print(f"  → {url}")
     print(f"  会话端点: https://{(conf.get('vidu') or {}).get('host')}  (组件版 /live/s_avatar/component)")
     print(f"  LLM    : {(conf.get('llm') or {}).get('base_url')}  {(conf.get('llm') or {}).get('model')}")
-    print(f"  TTS    : {(conf.get('tts') or {}).get('omnivoice_base')}  音色={(conf.get('tts') or {}).get('voice')}")
+    tts_conf = conf.get("tts") or {}
+    _prov = str(tts_conf.get("provider") or "omnivoice").strip().lower()
+    if _prov in ("say", "macos"):
+        print(f"  TTS    : macOS say(本机)  音色={tts_conf.get('voice') or tts_conf.get('say_voice') or 'Tingting'}")
+    elif _prov in ("edge", "edge-tts"):
+        print(f"  TTS    : edge-tts(微软在线)  音色={tts_conf.get('voice') or tts_conf.get('edge_voice') or '晓晓'}")
+    elif _prov in ("mlx", "mlx-audio"):
+        print(f"  TTS    : MLX OmniVoice(本机 Apple Silicon)  音色={tts_conf.get('voice') or 'mlx_default'}")
+    elif _prov in ("siliconflow", "cosyvoice", "sf"):
+        print(f"  TTS    : siliconflow(CosyVoice2)  音色={tts_conf.get('voice') or tts_conf.get('sf_voice') or 'bella'}")
+    else:
+        print(f"  TTS    : {tts_conf.get('omnivoice_base')}  音色={tts_conf.get('voice')}")
     print()
 
     if not args.no_browser:

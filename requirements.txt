@@ -6,3 +6,4 @@ certifi
 python-multipart>=0.0.9
 numpy
 gradio_client==2.5.0
+edge-tts>=6.1

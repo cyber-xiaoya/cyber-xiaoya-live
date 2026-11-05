@@ -2,11 +2,12 @@
   "_说明": "复制成 config.json 后填入你自己的密钥。config.json 已在 .gitignore 里，不会被提交。",
   "vidu": {
     "api_key": "vda_<在这里填你的Vidu密钥>",
-    "api_keys": [],
-    "avatar_id": "<在这里填你的数字人形象ID>",
-    "action": {
-      "library_id": ""
-    }
+    "api_keys": []
+  },
+  "_形象说明": "avatar_id 与 image_uri 二选一, 引擎里 image_uri 优先。avatar_id 要自己传图创建(舞台页 ⚙ 设置 → 资产库), 平台没有公共默认形象; image_uri 可填公网图片地址或 ssupload 短链",
+  "avatar": {
+    "avatar_id": "",
+    "image_uri": ""
   },
   "rtc": {
     "mode": "managed",
@@ -31,8 +32,22 @@
     ]
   },
   "tts": {
+    "_provider说明": "留空/omnivoice = WSL2+GPU 的 OmniVoice；say = macOS 自带 say（离线但机械）；edge = 微软在线（免费，自然度上限低）；siliconflow = CosyVoice2（最自然，可克隆音色，按量付费，需在 cloud.siliconflow.cn 申请 sk- 开头的 key 填 sf_api_key）",
     "provider": "",
     "voice": "",
+    "say_voice": "Tingting",
+    "edge_voice": "zh-CN-XiaoxiaoNeural",
+    "edge_rate": "+0%",
+    "edge_pitch": "+0Hz",
+    "sf_api_key": "",
+    "sf_voice": "FunAudioLLM/CosyVoice2-0.5B:bella",
+    "sf_speed": 1.0,
+    "sf_gain": 0.0,
+    "_mlx说明": "provider=mlx 时本机跑 OmniVoice(需 pip install mlx-audio); mlx_num_steps 扩散步数: 官方32最稳, 24=质量/延迟平衡, 8以下语音会有破碎感; 音色来自 voices 子目录的 mlx.json(参考音频+文本)",
+    "mlx_model": "mlx-community/OmniVoice-bfloat16",
+    "mlx_num_steps": 24,
+    "mlx_ref_audio": "",
+    "mlx_ref_text": "",
     "song_dirs": [],
     "song_files": []
   },
