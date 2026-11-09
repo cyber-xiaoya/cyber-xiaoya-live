@@ -28,6 +28,7 @@ import base64
 import pathlib
 import re
 import shutil
+import sys
 import time
 
 _FILE_RE = re.compile(r"^[^\\/]+$")          # 点播文件名: 只允许纯文件名(防目录穿越)
@@ -42,6 +43,8 @@ from . import dm_router
 from . import koubo as _koubo
 from .engine import Engine
 from .tts import audio
+from .tts import build as build_tts
+from .tts import provider_name as tts_provider
 from .vidu import client as vu
 
 # 日志落盘(必须在 engine 实例化之前): 事故现场(完整堆栈/断线原因)不再只留在那个
@@ -135,9 +138,13 @@ OMNI_WSL_DISTRO = "Ubuntu-22.04"
 
 
 def _health_cfg() -> dict:
-    c = ((appconf.load().get("tts") or {}).get("health") or {})
+    tts_conf = appconf.load().get("tts") or {}
+    c = (tts_conf.get("health") or {})
+    # 本机 TTS(say/edge/mlx)没有"引擎进程"可重启, 看门狗对它们无意义 → 直接停用
+    native = str(tts_conf.get("provider") or "").strip().lower() in (
+        "say", "macos", "edge", "edge-tts", "mlx", "mlx-audio")
     return {
-        "enabled": bool(c.get("enabled", True)),
+        "enabled": bool(c.get("enabled", True)) and not native,
         "check_sec": int(c.get("check_sec", 60) or 60),
         "vram_mb_max": int(c.get("vram_mb_max", 15800) or 15800),
         "slow_ms": int(c.get("slow_ms", 4000) or 4000),
@@ -187,6 +194,10 @@ def _port_open(host: str, port: int, timeout: float = 1.5) -> bool:
 
 def _restart_omnivoice_sync() -> bool:
     """杀 WSL 里的 OmniVoice → 用现成脚本重新拉起 → 等 9877 就绪。阻塞, 放线程跑。"""
+    if sys.platform != "win32":
+        # macOS/Linux 上没有 WSL/powershell: 重启逻辑不适用(非 Windows 用户自行重启服务)
+        print("[tts] 非 Windows 环境, 跳过 OmniVoice 自动重启", flush=True)
+        return False
     print("[tts] ♻ 开始重启 OmniVoice(WSL)…", flush=True)
     try:
         subprocess.run(["wsl", "-d", OMNI_WSL_DISTRO, "--", "bash", "-c",
@@ -835,13 +846,20 @@ async def settings_post(body: dict):
     merged = appconf.patch(body or {})
     # 引擎里的 TTS 基址跟随配置
     c = merged.get("tts") or {}
-    engine.tts.cfg_base = (c.get("omnivoice_base") or "").rstrip("/")
+    # provider 换了(omnivoice ↔ say) → 换一个 TTS 实例, 否则要重启桥才生效
+    if getattr(engine.tts, "provider", "omnivoice") != tts_provider(c):
+        engine.tts = build_tts(c)
+    else:
+        engine.tts.cfg_base = (c.get("omnivoice_base") or "").rstrip("/")
     return {"ok": True, "settings": appconf.public()}
 
 
 @app.post("/api/settings/reload")
 async def settings_reload():
     appconf.reload()
+    c = appconf.load().get("tts") or {}
+    if getattr(engine.tts, "provider", "omnivoice") != tts_provider(c):
+        engine.tts = build_tts(c)          # 手改 config.json 后热切 provider 也生效
     return {"ok": True, "settings": appconf.public()}
 
 

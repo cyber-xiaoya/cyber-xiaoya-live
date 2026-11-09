@@ -18,7 +18,8 @@ from pydantic import BaseModel
 
 from . import config as appconf
 from .tts import audio as tts_audio
-from .tts.omnivoice import OmniVoiceTTS, scan_voices
+from .tts import build as build_tts
+from .tts import voices as tts_voices
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 STORE = ROOT / "koubo" / "project.json"
@@ -28,7 +29,7 @@ AUDIO_DIR = ROOT / "koubo" / "audio"
 
 router = APIRouter()
 ENGINE = None
-TTS: OmniVoiceTTS | None = None
+TTS = None                     # 由 tts.build() 按 tts.provider 决定(OmniVoice / mac say)
 _TTS_LOCK = asyncio.Lock()
 _PLAY_TASK: asyncio.Task | None = None
 _TTS_TASK: asyncio.Task | None = None
@@ -180,18 +181,16 @@ def _renumber(st: dict) -> None:
 
 
 # ── TTS ──────────────────────────────────────────────────────────────────────
-def _tts() -> OmniVoiceTTS:
+def _tts():
     global TTS
     if TTS is None:
-        c = (appconf.load().get("tts") or {})
-        TTS = OmniVoiceTTS(c.get("omnivoice_base") or "http://127.0.0.1:9877",
-                           c.get("omnivoice_timeout_sec") or 120)
+        TTS = build_tts(appconf.load().get("tts") or {})
     return TTS
 
 
 def _preset() -> dict:
     c = (appconf.load().get("tts") or {})
-    voices = scan_voices(c.get("voices_dir") or r"<语音桥目录>\voices")
+    voices = tts_voices(c)
     name = c.get("voice") or "tw-xiaoya"
     if name not in voices:
         raise RuntimeError(f"音色不存在: {name}")

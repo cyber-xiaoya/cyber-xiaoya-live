@@ -47,6 +47,27 @@ TYPE_PROMPT_OPERATION_ERR = 14    # 参考图错误(成功才走 12)
 RETRYABLE_CODES = {"NOT_READY"}
 
 
+def _ws_proxy():
+    """wss 信令的代理策略(websockets.connect 的 proxy 参数)。
+
+    默认 **强制直连**(None): Vidu 是国内服务, 且 macOS 上 websockets 会读到
+    **系统级代理**(Clash 等, 127.0.0.1:7897 之类), 走 SOCKS 还要求装 python-socks ——
+    用户实测报错 "connecting through a SOCKS proxy requires python-socks" 就是它。
+    而且国内流量绕道海外节点又慢又容易触发风控, 直连才是对的。
+
+    特殊网络环境(如海外用户)需要走代理时, 设环境变量 VIDU_WS_PROXY:
+      VIDU_WS_PROXY=system   → 跟随系统/环境变量代理(需要 python-socks)
+      VIDU_WS_PROXY=socks5://127.0.0.1:7897 → 显式指定代理地址
+    """
+    import os
+    v = (os.environ.get("VIDU_WS_PROXY") or "").strip().lower()
+    if v == "system":
+        return True
+    if v and v != "direct":
+        return os.environ["VIDU_WS_PROXY"]
+    return None
+
+
 def envelope(t: int, live_id: str, payload: dict, conn_id: str, seq: int) -> dict:
     return {"type": t, "live_id": str(live_id), "conn_id": conn_id,
             "seq_id": seq, "payload": payload}
@@ -83,7 +104,8 @@ class ComponentSignaling:
         headers = {"Authorization": f"Token {self.api_key}"} if self.api_key else {}
         self.ws = await websockets.connect(url, additional_headers=headers, max_size=None,
                                            ssl=ssl_context(), ping_interval=10,
-                                           ping_timeout=20, close_timeout=5)
+                                           ping_timeout=20, close_timeout=5,
+                                           proxy=_ws_proxy())
         self.last_send = self.last_recv = time.time()
         self._listener = asyncio.create_task(self._pump())
 

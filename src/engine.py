@@ -22,7 +22,9 @@ import httpx
 
 from . import config as appconf
 from . import llm as llmmod
-from .tts import audio, omnivoice
+from .tts import audio
+from .tts import build as build_tts
+from .tts import voices as tts_voices
 from . import rtc_tokens
 from .vidu import client as vu
 from .vidu import signaling
@@ -54,9 +56,7 @@ class Engine:
 
     def __init__(self):
         self.llm = llmmod.LLMClient(lambda: (appconf.load().get("llm") or {}))
-        self.tts = omnivoice.OmniVoiceTTS(
-            (appconf.load().get("tts") or {}).get("omnivoice_base", ""),
-            (appconf.load().get("tts") or {}).get("omnivoice_timeout_sec", 120))
+        self.tts = build_tts(appconf.load().get("tts") or {})
         # ---- 会话状态 ----
         self.phase = "idle"            # idle | creating | live
         self.mode = ""                 # managed | customer
@@ -243,8 +243,7 @@ class Engine:
     # ============ 会话启动 / 结束 ============
 
     def _voices(self) -> dict:
-        c = appconf.load().get("tts") or {}
-        return omnivoice.scan_voices(c.get("voices_dir", ""))
+        return tts_voices(appconf.load().get("tts") or {})
 
     def _voice_preset(self) -> dict:
         c = appconf.load().get("tts") or {}

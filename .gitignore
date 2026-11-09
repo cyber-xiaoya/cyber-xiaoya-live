@@ -5,6 +5,8 @@ config.*.bak
 .env
 *.key
 *.pem
+key.txt
+*api-key*.txt
 
 # ── 运行时状态(每场直播都变) ────────────────────────────
 logs/
