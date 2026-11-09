@@ -13,6 +13,9 @@
 > 但**不包含**作者的人物形象、克隆音色、人设、动作库、歌库和任何 API Key —— 那些需要你自己准备。
 > 这份 README 会把"从零跑起来"需要做的每一步写清楚，照着做大约 **1 小时**。
 
+> 🍎 **macOS（Apple Silicon）用户**：看 [README-MAC.md](README-MAC.md)。本机没有 NVIDIA 显卡也能跑 ——
+> 语音走 `say` / `edge-tts` / MLX 本地 OmniVoice（支持克隆），数字人仍由 Vidu 云端渲染。
+
 ---
 
 ## 效果

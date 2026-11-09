@@ -1,7 +1,7 @@
 fastapi>=0.110
 uvicorn>=0.29
 httpx>=0.27
-websockets>=12
+websockets>=15
 certifi
 python-multipart>=0.0.9
 numpy
