@@ -362,9 +362,60 @@ Vidu 侧封盘可能要几分钟到几十分钟；页面「↻ 拉取录播」�
 > 项目相关的问题**优先提到本仓库的 [Issue](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues)** —— 公开可查，也方便后来人搜到答案；私信容易被淹没。
 > 想直接看效果：抖音直播间搜「天工开帧」，晚上常有直播。
 
+
+---
+
+## 🤝 参与共建 · 贡献者
+
+这个项目**从第一天就是靠社区一起变好的**。下面这些改动不是作者一个人写的 —— 他们提的代码、
+报的 bug、给的建议，已经真的跑在直播里了。
+
+### 已合并的社区贡献
+
+| 贡献者 | 贡献内容 | 落地位置 |
+|---|---|---|
+| [**@PyGuy2**](https://github.com/PyGuy2) | **开源版的主要共建者**：仓库初始化与脱敏（人设换通用模板、去掉个人路径）、把「从零跑起来」写全的 README、`tools/douyin_relay.py` 抖音弹幕转发器、舞台页动作组精简为 10 条随机示例、补齐 `assets/` 演示素材与舞台页截图、补发 `tools/omnivoice/` 的 `demo_flashinfer.py` + `start_server.sh`（解决安装者报缺文件）、`.gitattributes` 固定 `.sh/.py` 为 LF、同步 2026-11-02 私有库功能（固定编排 / 贵宾 / 会员欢迎 / 统计面板 / 动作优先级） | 17 次提交、覆盖 README 与工具链 |
+| [**@innocent123**](https://github.com/innocent123) | **macOS（Apple Silicon）适配**：新增 4 个 TTS provider（`say` 系统离线 / `edge-tts` 免费在线 / `siliconflow` CosyVoice2 可克隆 / `mlx` 本机 OmniVoice）、`tts.provider` 热切换与统一工厂、Mac 一键启动脚本 + `README-MAC.md`、wss 信令直连（修 macOS 跟随系统代理时的 `python-socks` 报错）、修正 `config.example.json` 里 `avatar.avatar_id` 的位置 | PR [#4](https://github.com/cyber-xiaoya/cyber-xiaoya-live/pull/4)（`mac` 分支，作者在 M4 Pro / 24G 实测） |
+| [**@014-code**](https://github.com/014-code) | **两个关键 bug 定位**：① customer + trtc 模式下观看端 AppID 误读 `rtc.artc.app_id`（[#1](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/1)）；② `conn_init` 失败后已连接的 WebSocket 没有关闭、连接泄漏（[#2](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/2)） | 均已修复到 `main` |
+| [**@huangyangke**](https://github.com/huangyangke) | **产品建议**：用 JEV 之类的模型区分「观众在点动作」还是「纯闲聊」，减少误判（[#5](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/5)） | 方案讨论中，欢迎一起做 |
+
+> 如果你也提交过代码/文档/翻译但没出现在这里，[开个 Issue](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues) 提醒我补上 —— 是我疏漏，不是不重要。
+
+### 可以一起做的事（都很缺人）
+
+| 方向 | 具体能做什么 |
+|---|---|
+| **平台适配** | Linux 一键启动、Docker 镜像、ARM 设备（香橙派/树莓派）跑桥 |
+| **TTS** | 接入更多 provider（GPT-SoVITS、Fish-Speech、IndexTTS…），把"音色克隆"这一步做得更傻瓜 |
+| **动作库** | 往 `docs/动作指令清单.md` 里补拟人化动作、编排组合；半身像能演的幅度写清楚 |
+| **弹幕平台** | 配套 [弹幕采集器](https://github.com/cyber-xiaoya/cyber-xiaoya-danmaku) 支持更多平台（快手、视频号、Twitch…） |
+| **文档 / 翻译** | 把这份 README 翻成英文；录一段"从零跑起来"的视频教程 |
+| **人设 / 提示词** | 提供通用人设模板、不同气质的 system prompt 范例 |
+| **问题反馈** | 最有用的一种贡献：**把踩到的坑写成 Issue**（附日志、复现步骤），比"跑不起来"有用一百倍 |
+
+### 怎么参与
+
+```
+① 先用 5 分钟看一遍 Issue 列表，避免重复
+② 小改动（文档、一行 bugfix）→ 直接提 PR 到 main
+③ 大改动（新 provider、新平台、目录结构调整）→ 先开 Issue 说方案，避免白写
+④ macOS 相关改动 → PR 到 mac 分支（那套适配还没合并进 main，详见 README-MAC.md）
+⑤ 代码风格：跟着现有文件走，不引入新的重型依赖（这个项目刻意保持轻）
+```
+
+**许可证是 AGPL-3.0**：你提交的代码会以同样许可发布；署名会留在 git 历史和这份贡献者名单里。
+
+
 ---
 
 ## 更新日志
+
+### 2026-11-13
+
+**文档**
+- 🤝 新增「参与共建 · 贡献者」章节：列出已合并的社区贡献（macOS 适配 / 两个关键 bug / 产品建议），
+  并列了 7 个可以一起做的方向（平台适配、TTS provider、动作库、弹幕平台、文档翻译、人设模板、问题反馈）
+- 明确 PR 路径：小改动直接提 `main`，macOS 相关提 `mac`，大改动先开 Issue 说方案
 
 ### 2026-11-02
 
