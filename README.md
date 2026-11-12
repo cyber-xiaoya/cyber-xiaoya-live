@@ -3,6 +3,7 @@
 > 🍎 **Mac / Apple Silicon 用户请先看这里** —— 本仓库的 `main` 分支是 **Windows 版**（TTS 走 WSL2 + OmniVoice）。
 > macOS 适配（MLX 本机语音 / `say` 离线 / `edge-tts` 在线 / siliconflow 可克隆 + Mac 一键启动）在 **`mac` 分支**，
 > 尚未合并进 `main`（试合并无冲突，缺 Windows 侧回归），原因与清单见 [issue #6](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/6)。
+> ✍️ **这一段代码由社区贡献者 [@innocent123](https://github.com/innocent123) 提交**（PR #4，M4 Pro / 24G 实测），感谢！
 >
 > ```bash
 > git clone -b mac https://github.com/cyber-xiaoya/cyber-xiaoya-live.git
