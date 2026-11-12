@@ -1,5 +1,14 @@
 # 赛博小雅直播版 · 组件版数字人（Vidu s2）
 
+> 🍎 **Mac / Apple Silicon 用户请先看这里** —— 本仓库的 `main` 分支是 **Windows 版**（TTS 走 WSL2 + OmniVoice）。
+> macOS 适配（MLX 本机语音 / `say` 离线 / `edge-tts` 在线 / siliconflow 可克隆 + Mac 一键启动）在 **`mac` 分支**，
+> 尚未合并进 `main`，原因与合并计划见 [跟踪 issue](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues)。
+>
+> ```bash
+> git clone -b mac https://github.com/cyber-xiaoya/cyber-xiaoya-live.git
+> # 然后看分支里的 README-MAC.md
+> ```
+
 > **本项目永久免费开源。** 唯一官方来源：https://github.com/cyber-xiaoya/cyber-xiaoya-live
 > 任何付费售卖、代下载、代部署均未经授权，欢迎举报（举报：提 [Issue](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues) 或在本项目官方群里 @我）。
 
@@ -103,6 +112,10 @@ ffmpeg -version
 ```
 
 ### 2.4 TTS —— 这一步最容易卡住
+
+> 🍎 **Mac 用户不要照这一节做**：你不需要 WSL2 + OmniVoice。请切到 `mac` 分支，
+> 用 `README-MAC.md` 里的方案（`say` / `edge-tts` / `mlx` / `siliconflow` 四选一，`tts.provider` 热切换）。
+
 
 项目**只认 OmniVoice**（`tts.engine = "omnivoice"`），因为要支持"克隆音色 + 直播中热切音色"。
 
