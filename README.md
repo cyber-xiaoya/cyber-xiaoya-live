@@ -367,17 +367,22 @@ Vidu 侧封盘可能要几分钟到几十分钟；页面「↻ 拉取录播」�
 
 ## 🤝 参与共建 · 贡献者
 
-这个项目**从第一天就是靠社区一起变好的**。下面这些改动不是作者一个人写的 —— 他们提的代码、
-报的 bug、给的建议，已经真的跑在直播里了。
+这个项目**从第一天就是靠社区一起变好的**。下面这些改动不是作者一个人写的：
+有的已经跑在直播里，有的合并到 `mac` 分支还没进 `main`，有的还只是提议 —— 都列出来，状态写清楚。
 
-### 已合并的社区贡献
+
+> ⚠️ **分支现状（重要）**：`main` 分支**不含** macOS 适配（`src/tts/` 只有 Omnivoice）。
+> Mac / Apple Silicon 用户请 `git checkout mac`（含 `say` / `edge-tts` / `siliconflow` / `mlx` 四个 provider），
+> 详见分支里的 `README-MAC.md`。两套分支的功能差异见下表「状态」列。
+
+### 社区贡献（谁做了什么）
 
 | 贡献者 | 贡献内容 | 落地位置 |
 |---|---|---|
-| [**@PyGuy2**](https://github.com/PyGuy2) | **开源版的主要共建者**：仓库初始化与脱敏（人设换通用模板、去掉个人路径）、把「从零跑起来」写全的 README、`tools/douyin_relay.py` 抖音弹幕转发器、舞台页动作组精简为 10 条随机示例、补齐 `assets/` 演示素材与舞台页截图、补发 `tools/omnivoice/` 的 `demo_flashinfer.py` + `start_server.sh`（解决安装者报缺文件）、`.gitattributes` 固定 `.sh/.py` 为 LF、同步 2026-11-02 私有库功能（固定编排 / 贵宾 / 会员欢迎 / 统计面板 / 动作优先级） | 17 次提交、覆盖 README 与工具链 |
-| [**@innocent123**](https://github.com/innocent123) | **macOS（Apple Silicon）适配**：新增 4 个 TTS provider（`say` 系统离线 / `edge-tts` 免费在线 / `siliconflow` CosyVoice2 可克隆 / `mlx` 本机 OmniVoice）、`tts.provider` 热切换与统一工厂、Mac 一键启动脚本 + `README-MAC.md`、wss 信令直连（修 macOS 跟随系统代理时的 `python-socks` 报错）、修正 `config.example.json` 里 `avatar.avatar_id` 的位置 | PR [#4](https://github.com/cyber-xiaoya/cyber-xiaoya-live/pull/4)（`mac` 分支，作者在 M4 Pro / 24G 实测） |
-| [**@014-code**](https://github.com/014-code) | **两个关键 bug 定位**：① customer + trtc 模式下观看端 AppID 误读 `rtc.artc.app_id`（[#1](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/1)）；② `conn_init` 失败后已连接的 WebSocket 没有关闭、连接泄漏（[#2](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/2)） | 均已修复到 `main` |
-| [**@huangyangke**](https://github.com/huangyangke) | **产品建议**：用 JEV 之类的模型区分「观众在点动作」还是「纯闲聊」，减少误判（[#5](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/5)） | 方案讨论中，欢迎一起做 |
+| [**@PyGuy2**](https://github.com/PyGuy2) | **开源版的主要共建者**：仓库初始化与脱敏（人设换通用模板、去掉个人路径）、把「从零跑起来」写全的 README、`tools/douyin_relay.py` 抖音弹幕转发器、舞台页动作组精简为 10 条随机示例、补齐 `assets/` 演示素材与舞台页截图、补发 `tools/omnivoice/` 的 `demo_flashinfer.py` + `start_server.sh`（解决安装者报缺文件）、`.gitattributes` 固定 `.sh/.py` 为 LF、同步 2026-11-02 私有库功能（固定编排 / 贵宾 / 会员欢迎 / 统计面板 / 动作优先级） | **main ✅** · 17 次提交 |
+| [**@innocent123**](https://github.com/innocent123) | **macOS（Apple Silicon）适配**：新增 4 个 TTS provider（`say` 系统离线 / `edge-tts` 免费在线 / `siliconflow` CosyVoice2 可克隆 / `mlx` 本机 OmniVoice）、`tts.provider` 热切换与统一工厂、Mac 一键启动脚本 + `README-MAC.md`、wss 信令直连（修 macOS 跟随系统代理时的 `python-socks` 报错）、修正 `config.example.json` 里 `avatar.avatar_id` 的位置 | **`mac` 分支 ✅** · PR [#4](https://github.com/cyber-xiaoya/cyber-xiaoya-live/pull/4)，作者在 M4 Pro / 24G 实测 · **main 暂未包含** |
+| [**@014-code**](https://github.com/014-code) | **两个关键 bug 定位**：① customer + trtc 模式下观看端 AppID 误读 `rtc.artc.app_id`（[#1](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/1)）；② `conn_init` 失败后已连接的 WebSocket 没有关闭、连接泄漏（[#2](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/2)） | **main ✅** 已修复（#1 在 `engine.py` 里改用 `trtc.sdk_app_id`；#2 在失败路径关闭连接） |
+| [**@huangyangke**](https://github.com/huangyangke) | **产品建议**：用 JEV 之类的模型区分「观众在点动作」还是「纯闲聊」，减少误判（[#5](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/5)） | **尚未实现** · issue [#5](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues/5) 开着，欢迎一起做 |
 
 > 如果你也提交过代码/文档/翻译但没出现在这里，[开个 Issue](https://github.com/cyber-xiaoya/cyber-xiaoya-live/issues) 提醒我补上 —— 是我疏漏，不是不重要。
 
