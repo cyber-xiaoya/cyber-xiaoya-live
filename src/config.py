@@ -11,6 +11,7 @@ import copy
 import json
 import os
 import pathlib
+import sys
 import threading
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -22,18 +23,54 @@ _lock = threading.Lock()
 _conf: dict | None = None
 
 
+def _is_placeholder(v: str) -> bool:
+    """示例配置里的占位符（如 "<在这里填你的数字人形象ID>"）不当作真实值迁移。"""
+    v = (v or "").strip()
+    return (not v) or v.startswith("<") or v.startswith("在这里")
+
+
+def _migrate(conf: dict) -> dict:
+    """兼容老配置：2026-11 之前的 config.example.json 把形象/动作放在 vidu 下。
+
+    引擎只读顶层 avatar / action，老用户照着旧示例填的 vidu.avatar_id 会一直报
+    "未配置形象"。这里在内存里把老键上提一次（不回写磁盘，避免动用户文件）；
+    用户之后任何一次保存设置都会自然落成新结构。
+    """
+    vidu = conf.get("vidu")
+    if not isinstance(vidu, dict):
+        return conf
+    avatar = conf.get("avatar")
+    if not isinstance(avatar, dict):
+        avatar = conf.setdefault("avatar", {})
+    if not (str(avatar.get("avatar_id") or "").strip()
+            or str(avatar.get("image_uri") or "").strip()):
+        old = str(vidu.get("avatar_id") or "").strip()
+        if not _is_placeholder(old):
+            avatar["avatar_id"] = old
+            print("[config] 已兼容老配置: vidu.avatar_id → avatar.avatar_id", file=sys.stderr)
+    if conf.get("action") is None:
+        old_act = vidu.get("action")
+        if isinstance(old_act, dict):
+            lib = str(old_act.get("library_id") or "").strip()
+            if not _is_placeholder(lib) and lib != "0":
+                conf["action"] = {"enabled": True, "library_id": lib}
+                print(f"[config] 已兼容老配置: vidu.action → action "
+                      f"(library_id={lib})", file=sys.stderr)
+    return conf
+
+
 def load() -> dict:
     global _conf
     with _lock:
         if _conf is None:
-            _conf = json.loads(CONF_PATH.read_text(encoding="utf-8"))
+            _conf = _migrate(json.loads(CONF_PATH.read_text(encoding="utf-8")))
         return _conf
 
 
 def reload() -> dict:
     global _conf
     with _lock:
-        _conf = json.loads(CONF_PATH.read_text(encoding="utf-8"))
+        _conf = _migrate(json.loads(CONF_PATH.read_text(encoding="utf-8")))
         return _conf
 
 
