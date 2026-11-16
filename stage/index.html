@@ -2768,7 +2768,7 @@ async function refreshVoices(){
     for (const v of d.voices){
       const o = document.createElement("option");
       o.value = v.name;
-      o.textContent = v.label + (v.kind === "design" ? "（设计）" : "（克隆）");
+      o.textContent = v.label + (v.kind === "design" ? "（设计）" : v.kind === "clone" ? "（克隆）" : "");
       if (v.name === d.current) o.selected = true;
       sel.appendChild(o);
     }
